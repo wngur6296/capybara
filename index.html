@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <!-- ✅ 아이폰 사파리 안정: 확대/줌 최소화 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>강해져바라</title>
+
+  <style>
+    :root{
+      --bg:#0e0e12;
+      --card:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.12);
+      --shadow:rgba(0,0,0,.6);
+      --gold:#f6c453;
+      --dia:#6fd3ff;
+      --hp:#44ff6a;
+      --shield:#4aa3ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:0;
+      background:var(--bg);
+      color:#fff;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+      touch-action:manipulation;
+    }
+    header{
+      padding:14px 12px 6px;
+      text-align:center;
+      font-weight:900;
+      font-size:28px;
+      letter-spacing:.5px;
+      text-shadow:0 0 14px rgba(255,215,0,.35);
+      cursor:pointer;
+    }
+    .sub{
+      text-align:center;
+      opacity:.78;
+      font-size:12.5px;
+      margin-bottom:10px;
+    }
+    .wrap{
+      max-width:620px;
+      margin:0 auto;
+      padding:0 10px 88px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      box-shadow:0 0 12px var(--shadow);
+      padding:12px;
+      margin:10px 0;
+    }
+    .row{display:flex; gap:10px; align-items:center; justify-content:space-between}
+    .col{display:flex; flex-direction:column; gap:6px}
+    .tiny{font-size:12px; opacity:.8}
+    .mono{font-variant-numeric:tabular-nums}
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.35);
+      font-size:12.5px;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .bars{display:flex; flex-direction:column; gap:6px; margin-top:6px}
+    .bar{
+      height:12px; border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .fill{
+      height:100%;
+      width:50%;
+      transition:width .22s ease;
+    }
+    .fill.hp{background:var(--hp)}
+    .fill.shield{background:var(--shield)}
+    .fill.monster{background:#ff7b7b}
+
+    /* 전투 배경 */
+    .battleArea{
+      position:relative;
+      overflow:hidden;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      background:
+        radial-gradient(1200px 400px at 50% 40%, rgba(255,255,255,.09), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.35));
+      min-height:210px;
+      padding:6px; /* ✅ 여유 */
+    }
+    .battleArea.common{
+      background:
+        radial-gradient(1000px 420px at 50% 35%, rgba(75,255,140,.10), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.45));
+    }
+    .battleArea.boss{
+      background:
+        radial-gradient(1000px 420px at 50% 35%, rgba(255,80,80,.13), transparent 60%),
+        radial-gradient(900px 380px at 60% 40%, rgba(255,215,0,.08), transparent 65%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.55));
+    }
+
+    /* ✅ 가로 잘림 방지: 유동 폭 + 자동 축소 */
+    .fighters{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      width:100%;
+      gap: clamp(6px, 2vw, 14px);
+      padding: 12px 10px;
+    }
+    .fighter{
+      flex: 1 1 0;
+      max-width: 34%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:6px;
+      min-width: 0;
+    }
+    .midInfo{
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 32%;
+      text-align:center;
+    }
+    .fighterWrap{
+      position:relative;
+      width: clamp(84px, 22vw, 120px);
+      height: clamp(84px, 22vw, 120px);
+    }
+    .fighter img.base{
+      width:100%; height:100%;
+      object-fit:contain;
+      filter:drop-shadow(0 8px 10px rgba(0,0,0,.55));
+      transition:transform .18s;
+      display:block;
+      position:absolute;
+      inset:0;
+      margin:auto;
+    }
+    .overlay{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .overlay img{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      filter:drop-shadow(0 6px 8px rgba(0,0,0,.45));
+      display:none; /* ✅ 기본 숨김: 장착+파일로드 성공 시에만 표시 */
+    }
+
+    .nameTag{font-size:12.5px; opacity:.85}
+    .midInfo .big{font-weight:800; font-size:14px; margin-bottom:2px}
+    .midInfo .small{font-size:12px; opacity:.8}
+
+    .critText{
+      position:absolute;
+      left:50%; top:44%;
+      transform:translate(-50%,-50%);
+      font-size:34px;
+      font-weight:1000;
+      color:var(--gold);
+      text-shadow:0 0 14px rgba(255,0,0,.55);
+      opacity:0;
+      pointer-events:none;
+    }
+    .showCrit{animation:critPop .7s ease-out}
+    @keyframes critPop{
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.6)}
+      30%{opacity:1; transform:translate(-50%,-50%) scale(1.35)}
+      100%{opacity:0; transform:translate(-50%,-50%) scale(1.05)}
+    }
+    .shake{animation:shake .24s}
+    @keyframes shake{
+      0%{transform:translateX(0)}
+      25%{transform:translateX(-10px)}
+      50%{transform:translateX(10px)}
+      75%{transform:translateX(-10px)}
+      100%{transform:translateX(0)}
+    }
+    .dash{animation:dash .22s}
+    @keyframes dash{
+      0%{transform:translateX(0)}
+      50%{transform:translateX(55px) scale(1.08)}
+      100%{transform:translateX(0)}
+    }
+
+    .btn{
+      width:100%;
+      border:0;
+      border-radius:14px;
+      padding:14px 12px;
+      margin:8px 0 0;
+      background:#1d1d24;
+      color:#fff;
+      font-weight:800;
+      font-size:16px;
+      box-shadow:0 0 10px rgba(0,0,0,.6);
+    }
+    .btn:active{transform:scale(.99)}
+    .btnRow{display:flex; gap:10px}
+    .btnHalf{flex:1}
+    .btnGold{background:rgba(246,196,83,.14); border:1px solid rgba(246,196,83,.28)}
+    .btnDia{background:rgba(111,211,255,.14); border:1px solid rgba(111,211,255,.28)}
+    .btnDanger{background:rgba(255,74,74,.16); border:1px solid rgba(255,74,74,.28)}
+    .btnOk{background:rgba(75,255,140,.14); border:1px solid rgba(75,255,140,.26)}
+    .muted{opacity:.75}
+
+    /* ✅ 로그 간략 + 보기 좋게 */
+    .log{
+      height:110px;
+      overflow:auto;
+      background:rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      padding:10px;
+      font-size:13px;
+      line-height:1.45;
+      white-space:pre-line;
+    }
+
+    /* 상태이상 아이콘 */
+    .statusIcons{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:center;
+      min-height:20px;
+    }
+    .sicon{
+      font-size:16px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.35);
+      line-height:1.1;
+    }
+
+    /* 하단 탭 */
+    .tabbar{
+      position:fixed;
+      left:0; right:0; bottom:0;
+      background:rgba(15,15,20,.92);
+      border-top:1px solid rgba(255,255,255,.10);
+      padding:10px 10px 12px;
+      backdrop-filter: blur(10px);
+    }
+    .tabs{
+      max-width:620px;
+      margin:0 auto;
+      display:flex;
+      gap:10px;
+    }
+    .tab{
+      flex:1;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      padding:10px 8px;
+      font-weight:900;
+      font-size:13px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+    }
+    .tab.active{
+      background:rgba(255,255,255,.12);
+      border-color:rgba(255,255,255,.18);
+    }
+
+    /* 인벤 */
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:10px;
+    }
+    .item{
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.30);
+      padding:10px;
+      min-height:78px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      cursor:pointer;
+    }
+    .item .top{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:6px;
+      font-size:12.5px;
+      font-weight:900;
+    }
+    .badge{
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      opacity:.9;
+    }
+    .rar-common{border-color:#bdbdbd}
+    .rar-rare{border-color:#00b7ff}
+    .rar-epic{border-color:#d400ff}
+    .rar-legend{border-color:gold}
+    .item .mid{font-size:12px; opacity:.85}
+    .traits{font-size:11px; opacity:.75; display:flex; flex-wrap:wrap; gap:4px}
+    .tchip{
+      padding:1px 6px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+    }
+    .sectionTitle{font-weight:1000; font-size:15px; margin-bottom:8px}
+
+    /* 모달 */
+    .modalBack{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.65);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:999;
+    }
+    .modal{
+      width:min(560px, 100%);
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(20,20,28,.96);
+      box-shadow:0 0 22px rgba(0,0,0,.75);
+      padding:12px;
+    }
+    .modalHead{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .modalTitle{font-weight:1000}
+    .xbtn{
+      border:0;
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:900;
+    }
+
+    /* 상자 연출 */
+    .chestWrap{position:relative; height:190px}
+    .chestImg{
+      width:130px; height:130px; object-fit:contain;
+      margin:6px auto 0;
+      display:block;
+      filter:drop-shadow(0 10px 12px rgba(0,0,0,.55));
+    }
+    .chestShake{animation:chShake .6s}
+    @keyframes chShake{
+      0%{transform:rotate(0deg)}
+      15%{transform:rotate(-12deg)}
+      30%{transform:rotate(12deg)}
+      45%{transform:rotate(-12deg)}
+      60%{transform:rotate(12deg)}
+      75%{transform:rotate(-6deg)}
+      100%{transform:rotate(0deg)}
+    }
+    .rewardCard{
+      position:absolute;
+      left:50%; top:56%;
+      transform:translate(-50%,-50%) scale(.2);
+      width:270px;
+      opacity:0;
+      pointer-events:none;
+      border-radius:16px;
+      background:rgba(0,0,0,.92);
+      border:2px solid rgba(255,255,255,.22);
+      padding:14px;
+      box-shadow:0 0 26px rgba(255,255,255,.16);
+    }
+    .rewardShow{animation:rewardPop .9s ease-out forwards}
+    @keyframes rewardPop{
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.2)}
+      35%{opacity:1; transform:translate(-50%,-50%) scale(1.18)}
+      100%{opacity:1; transform:translate(-50%,-50%) scale(1.0)}
+    }
+    .legendFlash{animation:legendFlash 1.1s infinite}
+    @keyframes legendFlash{
+      0%{box-shadow:0 0 10px rgba(255,215,0,.5)}
+      50%{box-shadow:0 0 35px rgba(255,74,74,.55)}
+      100%{box-shadow:0 0 10px rgba(255,215,0,.5)}
+    }
+
+    .topStats{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .statBox{padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.30)}
+    .statBox .k{opacity:.8; font-size:12px}
+    .statBox .v{font-weight:1000; font-size:14px; margin-top:2px}
+    .smallLine{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  </style>
+</head>
+
+<body>
+  <!-- ✅ 관리자 잠금해제: 제목 7연타 -->
+  <header id="gameTitle">강해져바라</header>
+  <div class="sub">카피바라를 강하게 키워봅시다!!!</div>
+
+  <div class="wrap">
+    <!-- 전투 -->
+    <section id="screenBattle">
+      <div class="card">
+        <!-- ✅ 전투화면에서는 골드/다이아 숨김: (요청 반영) -->
+        <div class="topStats">
+          <div class="statBox">
+            <div class="k">레벨</div>
+            <div class="v"><span id="uiLv" class="mono">1</span> / 200</div>
+          </div>
+          <div class="statBox">
+            <div class="k">스테이지</div>
+            <div class="v"><span id="uiStage" class="mono">1</span></div>
+          </div>
+        </div>
+
+        <div class="smallLine">
+          <span class="pill">공격력 <b id="uiAtk" class="mono">0</b></span>
+          <span class="pill">치명 <b id="uiCrit" class="mono">0</b>%</span>
+          <span class="pill">피감 <b id="uiDR" class="mono">0</b>%</span>
+        </div>
+
+        <div class="bars">
+          <div class="tiny">보호막 <span id="uiShieldTxt" class="mono">0</span> / <span id="uiShieldMaxTxt" class="mono">0</span></div>
+          <div class="bar"><div id="uiShieldBar" class="fill shield" style="width:0%"></div></div>
+
+          <div class="tiny">체력 <span id="uiHpTxt" class="mono">0</span> / <span id="uiHpMaxTxt" class="mono">0</span></div>
+          <div class="bar"><div id="uiHpBar" class="fill hp" style="width:100%"></div></div>
+        </div>
+
+        <div class="tiny" style="margin-top:8px;">무기슬롯 해금: 왼손 Lv30 / 입 Lv80</div>
+      </div>
+
+      <div class="card battleArea common" id="battleBg">
+        <div class="fighters">
+          <div class="fighter">
+            <div class="fighterWrap">
+              <img id="playerImg" class="base" src="capybara.png" alt="capybara">
+              <!-- ✅ 방어구/치장 오버레이: 장착 + 파일 로드 성공 때만 표시 -->
+              <div class="overlay">
+                <img id="ovArmor" src="armor_overlay.png" alt="armor overlay">
+                <img id="ovCos" src="cosmetic_overlay.png" alt="cos overlay">
+                <img id="ovMouth" src="mouth_overlay.png" alt="mouth overlay">
+              </div>
+            </div>
+            <div class="nameTag">카피바라</div>
+            <div class="statusIcons" id="uiPlayerIcons"></div>
+          </div>
+
+          <div class="midInfo">
+            <div class="big" id="uiMonsterName">하찮은 개구리</div>
+            <div class="small">HP <span id="uiMhp" class="mono">0</span> / <span id="uiMhpMax" class="mono">0</span></div>
+            <div class="bar" style="margin-top:6px;">
+              <div id="uiMhpBar" class="fill monster" style="width:100%"></div>
+            </div>
+            <div class="statusIcons" id="uiMonsterIcons" style="margin-top:10px;"></div>
+          </div>
+
+          <div class="fighter">
+            <div class="fighterWrap">
+              <img id="monsterImg" class="base" src="monster1.png" alt="monster">
+            </div>
+            <div class="nameTag">몬스터</div>
+          </div>
+        </div>
+
+        <div id="critText" class="critText">CRITICAL!!</div>
+      </div>
+
+      <div class="card">
+        <div class="btnRow">
+          <button class="btn btnHalf btnOk" onclick="attack()">👊 공격</button>
+          <button class="btn btnHalf" onclick="useHeal()">🍖 회복</button>
+        </div>
+        <div class="tiny" style="margin-top:6px;">🧴 회복템 <b id="uiHeals" class="mono">0</b>개</div>
+
+        <button class="btn muted" onclick="openReviveIfDead()">💎 부활 (다이아 5) / 사망 시만 가능</button>
+
+        <div class="sectionTitle" style="margin-top:10px;">전투 로그</div>
+        <div id="log" class="log"></div>
+      </div>
+    </section>
+
+    <!-- 상점 -->
+    <section id="screenShop" style="display:none;">
+      <!-- ✅ 골드/다이아는 상점에서만 보이기 -->
+      <div class="card">
+        <div class="sectionTitle">상점</div>
+        <div class="row" style="margin-top:6px;">
+          <span class="pill">💰 골드 <b id="uiGoldShop" class="mono">0</b></span>
+          <span class="pill">💎 다이아 <b id="uiDiaShop" class="mono">0</b></span>
+        </div>
+        <div class="tiny" style="margin-top:8px;">무기/방어구는 골드, 치장은 다이아로 뽑습니다!!!</div>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">🎰 무기·방어구 상자 (골드)</div>
+        <div class="chestWrap">
+          <img id="chestGear" class="chestImg" src="chest.png" alt="chest">
+          <div id="rewardGear" class="rewardCard"></div>
+        </div>
+        <div class="btnRow">
+          <button class="btn btnHalf btnGold" onclick="pullGear(1)">💰 1회 (200)</button>
+          <button class="btn btnHalf btnGold" onclick="pullGear(10)">💰 10회 (2000)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">✨ 치장 상자 (다이아)</div>
+        <div class="chestWrap">
+          <img id="chestCos" class="chestImg" src="chest.png" alt="chest">
+          <div id="rewardCos" class="rewardCard"></div>
+        </div>
+        <div class="btnRow">
+          <button class="btn btnHalf btnDia" onclick="pullCosmetic(1)">💎 1회 (5)</button>
+          <button class="btn btnHalf btnDia" onclick="pullCosmetic(10)">💎 10회 (50)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">합성</div>
+        <div class="tiny">같은 등급 3개 → 상위 등급 1개 (무기/방어구/치장 각각)</div>
+        <div class="btnRow">
+          <button class="btn btnHalf" onclick="fuseGear()">⚒ 무기·방어구 합성</button>
+          <button class="btn btnHalf" onclick="fuseCosmetic()">⚒ 치장 합성</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 창고 -->
+    <section id="screenWarehouse" style="display:none;">
+      <div class="card">
+        <div class="sectionTitle">창고</div>
+        <div class="tiny">무기(오른손/왼손/입) + 방어구 + 치장 관리</div>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">장착 상태</div>
+        <div class="row">
+          <div class="col" style="flex:1;">
+            <div class="tiny">오른손</div>
+            <div class="pill" id="uiEqR">-</div>
+          </div>
+          <div class="col" style="flex:1;">
+            <div class="tiny">왼손 (Lv30)</div>
+            <div class="pill" id="uiEqL">-</div>
+          </div>
+          <div class="col" style="flex:1;">
+            <div class="tiny">입 (Lv80)</div>
+            <div class="pill" id="uiEqM">-</div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="col" style="flex:1;">
+            <div class="tiny">방어구</div>
+            <div class="pill" id="uiEqA">-</div>
+          </div>
+          <div class="col" style="flex:1;">
+            <div class="tiny">치장</div>
+            <div class="pill" id="uiEqC">-</div>
+          </div>
+        </div>
+        <div class="tiny" style="margin-top:10px;">※ 장착/해제는 아이템 클릭</div>
+      </div>
+
+      <div class="card">
+        <div class="btnRow" style="margin-top:8px;">
+          <button class="btn btnHalf" onclick="setInvTab('weapon')">🗡 무기</button>
+          <button class="btn btnHalf" onclick="setInvTab('armor')">🛡 방어구</button>
+        </div>
+        <button class="btn" onclick="setInvTab('cos')">✨ 치장</button>
+
+        <div id="invGear" class="grid" style="margin-top:10px;"></div>
+        <div id="invCos" class="grid" style="margin-top:10px; display:none;"></div>
+      </div>
+    </section>
+
+    <!-- 설정 -->
+    <section id="screenSettings" style="display:none;">
+      <div class="card">
+        <div class="sectionTitle">설정</div>
+        <div class="tiny">BGM/효과음/초기화</div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="col">
+            <div class="sectionTitle" style="margin:0;">🎵 BGM</div>
+          </div>
+          <button class="btn btnHalf" onclick="toggleBgm()" id="btnBgm">ON</button>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="col">
+            <div class="sectionTitle" style="margin:0;">🔊 효과음</div>
+          </div>
+          <button class="btn btnHalf" onclick="toggleSfx()" id="btnSfx">ON</button>
+        </div>
+      </div>
+
+      <!-- ✅ 관리자 카드(잠금 해제 시 표시) -->
+      <div class="card" id="adminCard" style="display:none;">
+        <div class="sectionTitle">관리자</div>
+        <div class="tiny muted">주의: 관리자 기능은 밸런스 붕괴한다 형님!!!</div>
+        <button class="btn" onclick="openAdminPanel()">🧪 관리자 패널</button>
+      </div>
+
+      <div class="card">
+        <div class="sectionTitle">초기화</div>
+        <div class="tiny muted">모든 데이터 삭제 (되돌리기 불가)</div>
+        <button class="btn btnDanger" onclick="hardReset()">☠ 전체 초기화</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 하단 탭 -->
+  <div class="tabbar">
+    <div class="tabs">
+      <button class="tab active" id="tabBattle" onclick="showScreen('battle')">⚔ 전투</button>
+      <button class="tab" id="tabShop" onclick="showScreen('shop')">🛒 상점</button>
+      <button class="tab" id="tabWh" onclick="showScreen('warehouse')">🎒 창고</button>
+      <button class="tab" id="tabSet" onclick="showScreen('settings')">⚙ 설정</button>
+    </div>
+  </div>
+
+  <!-- 모달 -->
+  <div class="modalBack" id="modalBack">
+    <div class="modal">
+      <div class="modalHead">
+        <div class="modalTitle" id="modalTitle">알림</div>
+        <button class="xbtn" onclick="closeModal()">닫기</button>
+      </div>
+      <div id="modalBody" class="tiny" style="white-space:pre-wrap; line-height:1.55;"></div>
+      <div id="modalActions" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+<script>
+/* ✅ 사파리 더블탭 확대 방지 */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function (event) {
+  const now = (new Date()).getTime();
+  if (now - lastTouchEnd <= 300) event.preventDefault();
+  lastTouchEnd = now;
+}, false);
+
+/* 오디오 */
+let audioCtx = null;
+let bgmTimer = null;
+const settings = { bgmEnabled:true, sfxEnabled:true };
+
+function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function beep(freq=440, dur=0.08, type="square", vol=0.18){
+  if(!settings.sfxEnabled) return;
+  initAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.value = vol;
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+function sfxHit(){ beep(250,.06,"square",.22); }
+function sfxCrit(){ beep(1100,.09,"sawtooth",.22); }
+function sfxLvl(){ beep(650,.12,"triangle",.18); setTimeout(()=>beep(950,.12,"triangle",.18),140); }
+function sfxChest(){ beep(300,.08,"square",.22); setTimeout(()=>beep(420,.08,"square",.22),100); }
+function sfxLegend(){ beep(500,.1,"sawtooth",.22); setTimeout(()=>beep(900,.12,"sawtooth",.22),150); }
+function sfxFusion(){ beep(220,.12,"square",.22); setTimeout(()=>beep(640,.16,"sawtooth",.22),220); }
+
+function startBgm(){
+  initAudio();
+  if(bgmTimer) return;
+  const notes=[220,277,330,392,440,392,330,277];
+  let i=0;
+  bgmTimer=setInterval(()=>{
+    if(!settings.bgmEnabled) return;
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type="triangle"; osc.frequency.value=notes[i];
+    gain.gain.value=0.06;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+    i=(i+1)%notes.length;
+  },180);
+}
+function toggleBgm(){ settings.bgmEnabled=!settings.bgmEnabled; saveSettings(); renderSettingsButtons(); logShort(settings.bgmEnabled?"🎵 BGM ON":"🔇 BGM OFF"); if(settings.bgmEnabled) startBgm(); }
+function toggleSfx(){ settings.sfxEnabled=!settings.sfxEnabled; saveSettings(); renderSettingsButtons(); logShort(settings.sfxEnabled?"🔊 SFX ON":"🔇 SFX OFF"); }
+function renderSettingsButtons(){
+  document.getElementById("btnBgm").textContent = settings.bgmEnabled ? "ON" : "OFF";
+  document.getElementById("btnSfx").textContent = settings.sfxEnabled ? "ON" : "OFF";
+}
+
+/* 저장 */
+const SAVE_VERSION = 4;
+const SAVE_KEY_MAIN = "capy_save_main_v4";
+const SAVE_KEY_BACK = "capy_save_backup_v4";
+const SETTINGS_KEY  = "capy_settings_v4";
+
+/* 기본 */
+const MAX_LEVEL = 200;
+const RARITIES = ["common","rare","epic","legend"];
+const RAR_TEXT = {common:"일반", rare:"레어", epic:"에픽", legend:"전설"};
+const RAR_COLOR_CLASS = {common:"rar-common", rare:"rar-rare", epic:"rar-epic", legend:"rar-legend"};
+const CRIT_BY_RAR = { common:5, rare:10, epic:18, legend:25 };
+
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+function uid(){ return "id_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function randi(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function chance(p){ return Math.random()*100 < p; }
+
+/* ✅ 전투 로그 간략화 */
+function logShort(msg){
+  const log = document.getElementById("log");
+  log.textContent += msg + "\n";
+  log.scrollTop = log.scrollHeight;
+}
+
+/* 상태이상 */
+const STATUS_POOL = [
+  { id:"poison", name:"독", icon:"🧪" },
+  { id:"burn",  name:"화상", icon:"🔥" },
+  { id:"stun",  name:"기절", icon:"🌀" },
+  { id:"shock", name:"감전", icon:"⚡" },
+  { id:"weak",  name:"약화", icon:"🪫" },
+];
+function statusInfo(id){ return STATUS_POOL.find(s=>s.id===id) || {name:id, icon:"❓"}; }
+
+/* 특성 풀 */
+const TRAIT_POOL = [
+  { id:"t_poison",   name:"독",   type:"apply",   status:"poison", p:18 },
+  { id:"t_burn",     name:"화상", type:"apply",   status:"burn",   p:15 },
+  { id:"t_stun",     name:"기절", type:"apply",   status:"stun",   p:10 },
+  { id:"t_shock",    name:"감전", type:"apply",   status:"shock",  p:14 },
+
+  { id:"t_lifesteal",name:"흡혈", type:"lifesteal", p:18, value:0.10 },
+  { id:"t_multihit", name:"추가타", type:"multihit", p:16, value:0.35 },
+  { id:"t_shield",   name:"보호막", type:"shield",   p:16, value:0.18 },
+
+  { id:"t_cleanse",  name:"해제", type:"cleanse", p:14, value:1 },
+  { id:"t_regen",    name:"재생", type:"heal",    p:16, value:0.10 },
+  { id:"t_resist",   name:"저항", type:"resist",  p:18, value:0.15 },
+];
+
+function traitCountByRarity(r){
+  if(r==="common") return randi(0,1);
+  if(r==="rare") return 1;
+  if(r==="epic") return randi(1,2);
+  if(r==="legend") return randi(2,3);
+  return 0;
+}
+function rollTraits(rarity, forType){
+  const count = traitCountByRarity(rarity);
+  if(count<=0) return [];
+  let pool = TRAIT_POOL;
+  if(forType==="armor"){
+    pool = TRAIT_POOL.filter(t=>["shield","cleanse","heal","resist","apply"].includes(t.type));
+  }else if(forType==="cosmetic"){
+    pool = TRAIT_POOL.filter(t=>["cleanse","heal","resist","apply","shield"].includes(t.type));
+  }
+  const picked=[], used=new Set();
+  while(picked.length<count){
+    const t = pool[Math.floor(Math.random()*pool.length)];
+    if(used.has(t.id)) continue;
+    used.add(t.id);
+    picked.push(clone(t));
+    if(used.size>=pool.length) break;
+  }
+  return picked;
+}
+
+/* 장비 풀 */
+const WEAPON_POOL = [
+  { name:"녹슨 단검", atk:3, rarity:"common" },
+  { name:"나무 창", atk:6, rarity:"common" },
+  { name:"철검", atk:12, rarity:"rare" },
+  { name:"마왕의 송곳니", atk:25, rarity:"epic" },
+  { name:"신의 검(복제품)", atk:45, rarity:"epic" },
+  { name:"황금 대검", atk:70, rarity:"legend" },
+];
+const ARMOR_POOL = [
+  { name:"가죽 조끼", hpBonus:30, dmgReduce:6,  rarity:"common" },
+  { name:"철 갑옷",   hpBonus:80, dmgReduce:10, rarity:"rare" },
+  { name:"용비늘 갑옷", hpBonus:160, dmgReduce:14, rarity:"epic" },
+  { name:"신성한 성갑", hpBonus:260, dmgReduce:18, rarity:"legend" },
+];
+const COS_POOL = [
+  { name:"검은 목걸이", bonusAtk:2,  bonusHp:0,   rarity:"common" },
+  { name:"은반지",     bonusAtk:1,  bonusHp:20,  rarity:"common" },
+  { name:"스카프",     bonusAtk:5,  bonusHp:30,  rarity:"rare" },
+  { name:"왕관",       bonusAtk:12, bonusHp:80,  rarity:"epic" },
+  { name:"황금 시계",  bonusAtk:25, bonusHp:150, rarity:"legend" },
+];
+const MONSTER_POOL = [
+  { name:"하찮은 개구리", img:"monster1.png" },
+  { name:"조금 쎈 토끼", img:"monster2.png" },
+  { name:"맛있는 소", img:"monster3.png" },
+];
+
+let state=null;
+
+/* 설정 저장 */
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify({v:SAVE_VERSION, settings})); }
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(obj?.settings){
+      settings.bgmEnabled = !!obj.settings.bgmEnabled;
+      settings.sfxEnabled = !!obj.settings.sfxEnabled;
+    }
+  }catch(e){}
+}
+
+/* 세이브 안정화: main + backup + 버전검증 */
+function validateSave(obj){
+  return !!(obj && obj.version===SAVE_VERSION && obj.player && obj.monster);
+}
+function saveGame(){
+  try{
+    const mainRaw = localStorage.getItem(SAVE_KEY_MAIN);
+    if(mainRaw) localStorage.setItem(SAVE_KEY_BACK, mainRaw);
+    state.t = Date.now();
+    localStorage.setItem(SAVE_KEY_MAIN, JSON.stringify(state));
+  }catch(e){
+    logShort("⚠ 저장 실패");
+  }
+}
+function loadGame(){
+  try{
+    const main = localStorage.getItem(SAVE_KEY_MAIN);
+    if(main){
+      const obj = JSON.parse(main);
+      if(validateSave(obj)) return obj;
+    }
+  }catch(e){}
+  try{
+    const back = localStorage.getItem(SAVE_KEY_BACK);
+    if(back){
+      const obj = JSON.parse(back);
+      if(validateSave(obj)){
+        logShort("🛟 백업 복구");
+        return obj;
+      }
+    }
+  }catch(e){}
+  return null;
+}
+let autosaveTimer=null;
+function autoSave(){
+  if(autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer=setTimeout(()=>saveGame(), 200);
+}
+
+/* 상태이상 로직 */
+function tryApplyStatus(targetArr, statusId, baseP, resist=0){
+  const p = clamp(baseP * (1 - resist), 0, 100);
+  if(!chance(p)) return false;
+  const turns = randi(1,3);
+  const existing = targetArr.find(s=>s.id===statusId);
+  if(existing){ existing.turns = Math.max(existing.turns, turns); return true; }
+  if(targetArr.length>=3){
+    targetArr.sort((a,b)=>a.turns-b.turns);
+    targetArr.shift();
+  }
+  targetArr.push({id:statusId, turns});
+  return true;
+}
+function tickStatuses(arr, maxHpForDot){
+  if(!arr || arr.length===0) return {dot:0, stun:false};
+  let dot=0, stun=false;
+  for(const s of arr){
+    if(s.id==="poison") dot += Math.max(2, Math.floor(maxHpForDot*0.01));
+    if(s.id==="burn")   dot += Math.max(2, Math.floor(maxHpForDot*0.012));
+    if(s.id==="stun")   stun = true;
+    s.turns -= 1;
+  }
+  return {dot, stun};
+}
+function cleanStatuses(arr){ return (arr||[]).filter(s=>s.turns>0); }
+
+/* 게임 상태 */
+function newGameState(){
+  return {
+    version: SAVE_VERSION,
+    t: Date.now(),
+    player: {
+      level:1, exp:0, needExp:20,
+      stage:1,
+      baseAtk:5, baseMaxHp:100,
+      hp:100,
+      shield:0, shieldMax:0,
+      gold:300, dia:10,
+      healItems:0,
+      gear: [
+        { id:uid(), type:"weapon", name:"나뭇가지(???)", rarity:"common", atk:5, traits:[], isBranch:true, awakened:false }
+      ],
+      cosmetics: [],
+      equip: { weaponR:null, weaponL:null, weaponM:null, armor:null, cosmetic:null },
+      statuses: [],
+    },
+    monster: { boss:false, name:"하찮은 개구리", img:"monster1.png", maxHp:60, hp:60, atk:6 },
+    monsterStatuses: [],
+    resist: 0,
+    settings: clone(settings),
+    admin: { invincible:false, freezeMonster:false } // ✅ 치트용
+  };
+}
+
+/* 전투 계산 */
+function isBossStage(stage){ return stage % 10 === 0; }
+function spawnMonster(stage){
+  if(isBossStage(stage)){
+    return { boss:true, name:"🐉 보스 드래곤", img:"boss.png", maxHp:1, hp:1, atk:1 };
+  }
+  const pick = MONSTER_POOL[Math.floor(Math.random()*MONSTER_POOL.length)];
+  return { boss:false, name: pick.name, img: pick.img, maxHp:1, hp:1, atk:1 };
+}
+function getEquippedWeapons(){
+  const p = state.player;
+  const ids=[];
+  if(p.equip.weaponR) ids.push(p.equip.weaponR);
+  if(p.level>=30 && p.equip.weaponL) ids.push(p.equip.weaponL);
+  if(p.level>=80 && p.equip.weaponM) ids.push(p.equip.weaponM);
+  return ids.map(id=>p.gear.find(g=>g.id===id)).filter(Boolean);
+}
+function getEquippedArmor(){
+  const p=state.player;
+  return p.equip.armor ? (p.gear.find(g=>g.id===p.equip.armor) || null) : null;
+}
+function getEquippedCosmetic(){
+  const p=state.player;
+  return p.equip.cosmetic ? (p.cosmetics.find(c=>c.id===p.equip.cosmetic) || null) : null;
+}
+function getTotalAtk(){
+  const p=state.player;
+  const sumW = getEquippedWeapons().reduce((a,w)=>a+(w.atk||0),0);
+  const cos = getEquippedCosmetic();
+  return p.baseAtk + sumW + (cos?cos.bonusAtk:0);
+}
+function getTotalMaxHp(){
+  const p=state.player;
+  const armor = getEquippedArmor();
+  const cos = getEquippedCosmetic();
+  return p.baseMaxHp + (armor?armor.hpBonus:0) + (cos?cos.bonusHp:0);
+}
+function getDamageReduce(){
+  const armor = getEquippedArmor();
+  return clamp(armor?armor.dmgReduce:0, 0, 60);
+}
+function getCritChance(){
+  const weps = getEquippedWeapons();
+  if(weps.length===0) return CRIT_BY_RAR.common;
+  const rank = r=>RARITIES.indexOf(r);
+  const best = weps.reduce((a,w)=> rank(w.rarity)>rank(a)?w.rarity:a, "common");
+  return CRIT_BY_RAR[best] ?? 5;
+}
+function getResist(){
+  const p=state.player;
+  let res=0;
+  const armor=getEquippedArmor();
+  const cos=getEquippedCosmetic();
+  const weps=getEquippedWeapons();
+  const all=[...weps, ...(armor?[armor]:[]), ...(cos?[cos]:[])];
+  for(const it of all){
+    for(const t of (it.traits||[])){
+      if(t.type==="resist") res += (t.value||0);
+    }
+  }
+  return clamp(res, 0, 0.6);
+}
+
+/* ✅ 스테이지별 몬스터 HP/ATK 조정: 무기대비 너무 쎈 문제 완화 */
+function recalcMonsterStats(){
+  const p=state.player, m=state.monster;
+  const atk=getTotalAtk();
+
+  // 스테이지가 오를수록 "너무 탱키" 되지 않도록, 공격력 기반 + 완만한 stage bonus
+  const hits = m.boss ? randi(8,11) : randi(3,4);
+  const base = atk * hits;
+
+  // ✅ 이전보다 완만하게
+  const stageBonus = p.stage * (m.boss ? 18 : 7);
+
+  m.maxHp = Math.max(28, Math.floor(base + stageBonus));
+  m.hp = clamp(m.hp, 1, m.maxHp);
+
+  // 몬스터 공격력도 완만하게
+  m.atk = Math.max(4, Math.floor(5 + p.stage * (m.boss ? 1.4 : 1.0)));
+}
+
+function setMonster(stage){
+  state.monsterStatuses=[];
+  state.monster=spawnMonster(stage);
+  recalcMonsterStats();
+  state.monster.hp = state.monster.maxHp;
+
+  const bg=document.getElementById("battleBg");
+  bg.classList.toggle("boss", !!state.monster.boss);
+  bg.classList.toggle("common", !state.monster.boss);
+
+  document.getElementById("monsterImg").src = state.monster.img;
+  document.getElementById("uiMonsterName").textContent = state.monster.name;
+
+  autoSave();
+}
+
+/* ✅ 오버레이: 파일 로드 성공 + 장착 조건 모두 만족해야만 표시 */
+function markOverlayLoaded(imgEl){
+  imgEl.dataset.loaded = "1";
+}
+function safeHide(imgEl){
+  imgEl.style.display="none";
+  imgEl.dataset.loaded = "0";
+}
+function initOverlayHandlers(){
+  const imgs=[document.getElementById("ovArmor"),document.getElementById("ovCos"),document.getElementById("ovMouth")];
+  for(const im of imgs){
+    im.addEventListener("load", ()=>markOverlayLoaded(im));
+    im.addEventListener("error", ()=>safeHide(im));
+  }
+}
+function updateOverlays(){
+  const p=state.player;
+  const ovArmor=document.getElementById("ovArmor");
+  const ovCos=document.getElementById("ovCos");
+  const ovMouth=document.getElementById("ovMouth");
+
+  // ✅ 장착 여부 + 이미지 로드 성공 여부
+  const armorOk = !!p.equip.armor && ovArmor.dataset.loaded==="1";
+  const cosOk   = !!p.equip.cosmetic && ovCos.dataset.loaded==="1";
+  const mouthOk = (p.level>=80 && p.equip.weaponM) && ovMouth.dataset.loaded==="1";
+
+  ovArmor.style.display = armorOk ? "block" : "none";
+  ovCos.style.display   = cosOk   ? "block" : "none";
+  ovMouth.style.display = mouthOk ? "block" : "none";
+}
+
+/* 상태이상 아이콘 */
+function renderStatusIcons(){
+  const pIcons = document.getElementById("uiPlayerIcons");
+  const mIcons = document.getElementById("uiMonsterIcons");
+  pIcons.innerHTML=""; mIcons.innerHTML="";
+
+  const pArr = state.player.statuses || [];
+  const mArr = state.monsterStatuses || [];
+
+  const make = (parent, arr)=>{
+    if(arr.length===0){ return; }
+    for(const st of arr.slice(0,3)){
+      const info=statusInfo(st.id);
+      const s=document.createElement("span");
+      s.className="sicon";
+      s.textContent = `${info.icon}${st.turns}`;
+      parent.appendChild(s);
+    }
+  };
+  make(pIcons, pArr);
+  make(mIcons, mArr);
+}
+
+/* UI */
+let invTab="weapon";
+function setInvTab(tab){
+  invTab=tab;
+  document.getElementById("invGear").style.display = (tab==="cos") ? "none" : "grid";
+  document.getElementById("invCos").style.display = (tab==="cos") ? "grid" : "none";
+  renderInventory();
+}
+function isEquippedGear(id){
+  const e=state.player.equip;
+  return e.weaponR===id || e.weaponL===id || e.weaponM===id || e.armor===id;
+}
+function renderInventory(){
+  const p=state.player;
+  const invGear=document.getElementById("invGear");
+  const invCos=document.getElementById("invCos");
+  invGear.innerHTML=""; invCos.innerHTML="";
+
+  if(invTab!=="cos"){
+    const list=p.gear.filter(g=>g.type===invTab);
+    if(list.length===0){
+      invGear.innerHTML=`<div class="tiny muted">없음</div>`;
+      return;
+    }
+    for(const g of list){
+      const div=document.createElement("div");
+      div.className=`item ${RAR_COLOR_CLASS[g.rarity]}`;
+      const badge=RAR_TEXT[g.rarity] || g.rarity;
+      const eqMark=isEquippedGear(g.id)?"✅":"";
+      const topL = (g.type==="weapon") ? `ATK+${g.atk}` : `HP+${g.hpBonus} / 피감${g.dmgReduce}%`;
+      div.innerHTML = `
+        <div class="top"><span>${eqMark} ${g.name}</span><span class="badge">${badge}</span></div>
+        <div class="mid">${topL}</div>
+        <div class="traits">${(g.traits||[]).slice(0,3).map(t=>`<span class="tchip">${t.name}</span>`).join("") || `<span class="tchip">특성 없음</span>`}</div>
+      `;
+      div.onclick=()=>onClickGear(g);
+      invGear.appendChild(div);
+    }
+  }else{
+    const list=p.cosmetics;
+    if(list.length===0){
+      invCos.innerHTML=`<div class="tiny muted">없음</div>`;
+      return;
+    }
+    for(const c of list){
+      const div=document.createElement("div");
+      div.className=`item ${RAR_COLOR_CLASS[c.rarity]}`;
+      const badge=RAR_TEXT[c.rarity] || c.rarity;
+      const eqMark=(p.equip.cosmetic===c.id)?"✅":"";
+      div.innerHTML=`
+        <div class="top"><span>${eqMark} ${c.name}</span><span class="badge">${badge}</span></div>
+        <div class="mid">ATK+${c.bonusAtk} / HP+${c.bonusHp}</div>
+        <div class="traits">${(c.traits||[]).slice(0,3).map(t=>`<span class="tchip">${t.name}</span>`).join("") || `<span class="tchip">특성 없음</span>`}</div>
+      `;
+      div.onclick=()=>onClickCos(c);
+      invCos.appendChild(div);
+    }
+  }
+}
+
+function render(){
+  const p=state.player, m=state.monster;
+
+  // battle
+  document.getElementById("uiLv").textContent=p.level;
+  document.getElementById("uiStage").textContent=p.stage;
+
+  // shop only
+  document.getElementById("uiGoldShop").textContent=p.gold;
+  document.getElementById("uiDiaShop").textContent=p.dia;
+
+  const atk=getTotalAtk(), crit=getCritChance(), dr=getDamageReduce();
+  document.getElementById("uiAtk").textContent=atk;
+  document.getElementById("uiCrit").textContent=crit;
+  document.getElementById("uiDR").textContent=dr;
+
+  const maxHp=getTotalMaxHp();
+  p.hp=clamp(p.hp,0,maxHp);
+
+  document.getElementById("uiHpTxt").textContent=p.hp;
+  document.getElementById("uiHpMaxTxt").textContent=maxHp;
+  document.getElementById("uiHpBar").style.width=`${clamp((p.hp/maxHp)*100,0,100)}%`;
+
+  document.getElementById("uiShieldTxt").textContent=Math.floor(p.shield);
+  document.getElementById("uiShieldMaxTxt").textContent=Math.floor(p.shieldMax);
+  const spPct=(p.shieldMax>0)?(p.shield/p.shieldMax)*100:0;
+  document.getElementById("uiShieldBar").style.width=`${clamp(spPct,0,100)}%`;
+
+  document.getElementById("uiHeals").textContent=p.healItems;
+
+  document.getElementById("uiMhp").textContent=m.hp;
+  document.getElementById("uiMhpMax").textContent=m.maxHp;
+  document.getElementById("uiMhpBar").style.width=`${clamp((m.hp/m.maxHp)*100,0,100)}%`;
+
+  const getNameById=(id)=>p.gear.find(g=>g.id===id)?.name || "-";
+  document.getElementById("uiEqR").textContent=getNameById(p.equip.weaponR);
+  document.getElementById("uiEqL").textContent=(p.level>=30)?getNameById(p.equip.weaponL):"잠김";
+  document.getElementById("uiEqM").textContent=(p.level>=80)?getNameById(p.equip.weaponM):"잠김";
+  document.getElementById("uiEqA").textContent=getNameById(p.equip.armor);
+  document.getElementById("uiEqC").textContent=(getEquippedCosmetic()?.name)||"-";
+
+  state.resist = getResist();
+
+  updateOverlays();
+  renderStatusIcons();
+  renderInventory();
+  renderSettingsButtons();
+}
+
+/* 모달 */
+function showModal(title, body, actions=[]){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").textContent=body;
+  const act=document.getElementById("modalActions");
+  act.innerHTML="";
+  for(const a of actions){
+    const b=document.createElement("button");
+    b.className="btn";
+    b.textContent=a.text;
+    if(a.disabled){
+      b.style.opacity=.5;
+      b.onclick=()=>{};
+    }else{
+      b.onclick=()=>a.fn?.();
+    }
+    act.appendChild(b);
+  }
+  document.getElementById("modalBack").style.display="flex";
+}
+function closeModal(){ document.getElementById("modalBack").style.display="none"; }
+
+/* 화면 */
+function showScreen(name){
+  const screens={
+    battle:document.getElementById("screenBattle"),
+    shop:document.getElementById("screenShop"),
+    warehouse:document.getElementById("screenWarehouse"),
+    settings:document.getElementById("screenSettings"),
+  };
+  for(const k in screens) screens[k].style.display=(k===name)?"block":"none";
+  document.getElementById("tabBattle").classList.toggle("active", name==="battle");
+  document.getElementById("tabShop").classList.toggle("active", name==="shop");
+  document.getElementById("tabWh").classList.toggle("active", name==="warehouse");
+  document.getElementById("tabSet").classList.toggle("active", name==="settings");
+  render(); // ✅ 탭 이동 시 shop 재화 갱신 확실히
+}
+
+/* 장착 */
+function onClickGear(g){
+  const p=state.player;
+  if(g.type==="weapon"){
+    const unlockedL=p.level>=30, unlockedM=p.level>=80;
+    const actions=[
+      {text:"오른손 장착", fn:()=>{equipWeapon("R", g.id)}},
+      {text:"오른손 해제", fn:()=>{equipWeapon("R", null)}},
+      {text:unlockedL?"왼손 장착":"왼손 잠김(Lv30)", disabled:!unlockedL, fn:()=>{equipWeapon("L", g.id)}},
+      {text:unlockedL?"왼손 해제":"왼손 해제", disabled:!unlockedL, fn:()=>{equipWeapon("L", null)}},
+      {text:unlockedM?"입 장착":"입 잠김(Lv80)", disabled:!unlockedM, fn:()=>{equipWeapon("M", g.id)}},
+      {text:unlockedM?"입 해제":"입 해제", disabled:!unlockedM, fn:()=>{equipWeapon("M", null)}},
+      {text:"닫기", fn:()=>closeModal()}
+    ];
+    showModal("무기", `${g.name}\n등급:${RAR_TEXT[g.rarity]}\nATK+${g.atk}\n특성:${(g.traits||[]).map(t=>t.name).join(", ")||"없음"}`, actions);
+    return;
+  }
+  if(g.type==="armor"){
+    showModal("방어구", `${g.name}\n등급:${RAR_TEXT[g.rarity]}\nHP+${g.hpBonus}\n피감${g.dmgReduce}%\n특성:${(g.traits||[]).map(t=>t.name).join(", ")||"없음"}`,[
+      {text:"방어구 장착", fn:()=>{p.equip.armor=g.id; postEquip(); logShort(`🛡 장착 ${g.name}`); closeModal();}},
+      {text:"방어구 해제", fn:()=>{p.equip.armor=null; postEquip(); logShort(`🛡 해제`); closeModal();}},
+      {text:"닫기", fn:()=>closeModal()}
+    ]);
+    return;
+  }
+}
+function onClickCos(c){
+  const p=state.player;
+  showModal("치장", `${c.name}\n등급:${RAR_TEXT[c.rarity]}\nATK+${c.bonusAtk} / HP+${c.bonusHp}\n특성:${(c.traits||[]).map(t=>t.name).join(", ")||"없음"}`,[
+    {text:"치장 장착", fn:()=>{p.equip.cosmetic=c.id; postEquip(); logShort(`✨ 장착 ${c.name}`); closeModal();}},
+    {text:"치장 해제", fn:()=>{p.equip.cosmetic=null; postEquip(); logShort(`✨ 해제`); closeModal();}},
+    {text:"닫기", fn:()=>closeModal()}
+  ]);
+}
+function equipWeapon(slot,id){
+  const e=state.player.equip;
+  if(slot==="R") e.weaponR=id;
+  if(slot==="L") e.weaponL=id;
+  if(slot==="M") e.weaponM=id;
+  postEquip();
+  logShort(`🗡 슬롯 변경 ${slot}`);
+  closeModal();
+}
+function postEquip(){
+  const p=state.player;
+  const maxHp=getTotalMaxHp();
+  p.hp=clamp(p.hp,0,maxHp);
+  recalcMonsterStats();
+  render();
+  autoSave();
+}
+
+/* 전투 */
+function showCrit(){
+  const el=document.getElementById("critText");
+  el.classList.remove("showCrit"); void el.offsetWidth;
+  el.classList.add("showCrit");
+}
+function applyTraitsOnAttack(){
+  const out={ extraHits:0, lifesteal:0, addShield:0, cleanse:0, statusApplied:[] };
+  const p=state.player;
+  const armor=getEquippedArmor(), cos=getEquippedCosmetic(), weps=getEquippedWeapons();
+  const all=[...weps, ...(armor?[armor]:[]), ...(cos?[cos]:[])];
+
+  for(const it of all){
+    for(const t of (it.traits||[])){
+      if(!chance(t.p||0)) continue;
+      if(t.type==="apply"){
+        if(tryApplyStatus(state.monsterStatuses, t.status, 100, 0)){
+          out.statusApplied.push(t.status);
+        }
+      }
+      if(t.type==="multihit") out.extraHits += 1;
+      if(t.type==="lifesteal") out.lifesteal += (t.value||0);
+      if(t.type==="shield") out.addShield += (t.value||0);
+      if(t.type==="cleanse") out.cleanse += (t.value||1);
+      if(t.type==="heal"){
+        const maxHp=getTotalMaxHp();
+        const add=Math.max(1, Math.floor(maxHp*(t.value||0.08)));
+        p.hp=clamp(p.hp+add,0,maxHp);
+        logShort(`💚 재생 +${add}`);
+      }
+    }
+  }
+  return out;
+}
+
+function dealToPlayer(raw){
+  const p=state.player;
+
+  if(state.admin?.invincible){
+    return {shieldLost:0, hpLost:0};
+  }
+
+  const dr=getDamageReduce()/100;
+  let dmg=Math.floor(raw*(1-dr));
+  if(dmg<1) dmg=1;
+
+  // ✅ 한방 최대 피해 = 현재 체력 95%
+  dmg=Math.min(dmg, Math.max(1, Math.floor(p.hp*0.95)));
+
+  let shieldLost=0, hpLost=0;
+
+  if(p.shield>0){
+    const sUse=Math.min(p.shield, dmg);
+    p.shield-=sUse;
+    dmg-=sUse;
+    shieldLost=sUse;
+  }
+  if(dmg>0){
+    p.hp-=dmg;
+    hpLost=dmg;
+  }
+  return {shieldLost, hpLost};
+}
+
+function attack(){
+  const p=state.player, m=state.monster;
+  if(p.hp<=0){ logShort("☠ 사망 상태"); render(); return; }
+
+  // DOT/기절 처리
+  let pDot=0, mDot=0;
+  {
+    const pt=tickStatuses(p.statuses, getTotalMaxHp());
+    const mt=tickStatuses(state.monsterStatuses, m.maxHp);
+    if(pt.dot>0){
+      const r=dealToPlayer(pt.dot);
+      pDot = r.hpLost + r.shieldLost;
+    }
+    if(mt.dot>0){ m.hp=clamp(m.hp-mt.dot,0,m.maxHp); mDot=mt.dot; }
+    const pStun=pt.stun, mStun=mt.stun;
+    p.statuses=cleanStatuses(p.statuses);
+    state.monsterStatuses=cleanStatuses(state.monsterStatuses);
+
+    if(pDot>0) logShort(`🧪 DOT -${pDot}`);
+    if(mDot>0) logShort(`🧪 몬스터 DOT -${mDot}`);
+
+    if(p.hp<=0){ onDeath(); render(); autoSave(); return; }
+    if(pStun){
+      logShort("🌀 기절! 턴 스킵");
+      if(!mStun) monsterTurn();
+      render(); autoSave(); return;
+    }
+  }
+
+  // 공격
+  sfxHit();
+  const pImg=document.getElementById("playerImg");
+  const mImg=document.getElementById("monsterImg");
+  pImg.classList.add("dash"); mImg.classList.add("shake");
+  setTimeout(()=>pImg.classList.remove("dash"),250);
+  setTimeout(()=>mImg.classList.remove("shake"),250);
+
+  let dmg=getTotalAtk();
+  const isCrit=chance(getCritChance());
+  if(isCrit){ dmg=Math.floor(dmg*2.0); showCrit(); sfxCrit(); logShort(`💥 치명 -${dmg}`); }
+  else logShort(`👊 공격 -${dmg}`);
+
+  // 특성 발동
+  const eff=applyTraitsOnAttack();
+  if(eff.statusApplied.length>0){
+    const icons=eff.statusApplied.map(id=>statusInfo(id).icon).join("");
+    logShort(`✨ 상태부여 ${icons}`);
+  }
+  if(eff.addShield>0){
+    const add=Math.floor(getTotalMaxHp()*eff.addShield);
+    p.shield += add;
+    p.shieldMax = Math.max(p.shieldMax, p.shield);
+    logShort(`🛡 보호막 +${add}`);
+  }
+
+  m.hp=clamp(m.hp-dmg,0,m.maxHp);
+
+  if(eff.extraHits>0 && m.hp>0){
+    const ex=Math.floor(getTotalAtk()*0.35);
+    m.hp=clamp(m.hp-ex,0,m.maxHp);
+    logShort(`⚡ 추가타 -${ex}`);
+  }
+  if(eff.lifesteal>0){
+    const heal=Math.max(1, Math.floor(dmg*eff.lifesteal));
+    p.hp=clamp(p.hp+heal,0,getTotalMaxHp());
+    logShort(`🩸 흡혈 +${heal}`);
+  }
+  if(eff.cleanse>0 && p.statuses.length>0){
+    p.statuses.shift();
+    logShort("🧼 해제 1");
+  }
+
+  // 승리
+  if(m.hp<=0){ onWin(); render(); autoSave(); return; }
+
+  // 몬스터 턴
+  const monsterStunned = state.monsterStatuses.some(s=>s.id==="stun");
+  if(monsterStunned){
+    logShort("🌀 몬스터 기절");
+  }else{
+    monsterTurn();
+  }
+
+  if(p.hp<=0) onDeath();
+  render();
+  autoSave();
+}
+
+function monsterTurn(){
+  const p=state.player, m=state.monster;
+
+  if(state.admin?.freezeMonster){
+    logShort("🧊 (치트) 몬스터 행동 정지");
+    return;
+  }
+
+  let dmg=m.atk;
+
+  if(m.boss){
+    const r=Math.random()*100;
+    if(r<40){ /* 기본 */ }
+    else if(r<75){ dmg=Math.floor(dmg*1.8); }
+    else { dmg=Math.floor(dmg*2.6); }
+  }else{
+    let counterChance = Math.min(70, 22 + Math.floor(p.stage*1.2));
+    if(!chance(counterChance)){ logShort("😈 공격 실패"); return; }
+  }
+
+  const pImg=document.getElementById("playerImg");
+  pImg.classList.add("shake");
+  setTimeout(()=>pImg.classList.remove("shake"),250);
+
+  const r=dealToPlayer(dmg);
+  logShort(`🟥 피해 -${r.hpLost} 🟦-${r.shieldLost}`);
+}
+
+function onWin(){
+  const p=state.player;
+  const gainExp=10+p.stage*3;
+  const gainGold=30+p.stage*10;
+  p.exp+=gainExp; p.gold+=gainGold;
+
+  // ✅ 회복템 드랍 3~7
+  const heals=randi(3,7);
+  p.healItems+=heals;
+
+  logShort(`🏆 승리 +EXP${gainExp} +G${gainGold} +🧴${heals}`);
+  if(chance(10)){ p.dia+=1; logShort("💎 +1"); }
+
+  while(p.exp>=p.needExp && p.level<MAX_LEVEL){
+    p.exp-=p.needExp; p.level+=1;
+    p.needExp=Math.floor(p.needExp*1.28+12);
+    p.baseMaxHp+=18; p.baseAtk+=2;
+    const maxHp=getTotalMaxHp();
+    p.hp=clamp(p.hp+Math.floor(maxHp*0.18),0,maxHp);
+    sfxLvl();
+    logShort(`📈 Lv${p.level}`);
+    if(p.level===MAX_LEVEL) awakenBranch();
+  }
+
+  p.stage += 1;
+  setMonster(p.stage);
+}
+
+function awakenBranch(){
+  const p=state.player;
+  const branch=p.gear.find(g=>g.isBranch);
+  if(!branch || branch.awakened) return;
+  branch.awakened=true;
+  branch.atk=10000;
+  branch.rarity="legend";
+  branch.name="나뭇가지(진짜 끝판왕)";
+  branch.traits=rollTraits("legend","weapon");
+  logShort("🔥 만렙! 나뭇가지 각성");
+  sfxLegend();
+  if(!p.equip.weaponR) p.equip.weaponR=branch.id;
+}
+
+function useHeal(){
+  const p=state.player;
+  if(p.hp<=0){ logShort("☠ 회복 불가"); return; }
+  if(p.healItems<=0){ logShort("❌ 회복템 없음"); return; }
+  p.healItems -= 1;
+  const heal=Math.max(1, Math.floor(getTotalMaxHp()*0.35));
+  p.hp=clamp(p.hp+heal,0,getTotalMaxHp());
+  logShort(`🍖 회복 +${heal} (🧴${p.healItems})`);
+  autoSave(); render();
+}
+
+/* 죽음/부활/리셋런 */
+function onDeath(){
+  logShort("☠ 사망");
+  showDeathModal();
+  autoSave();
+}
+function openReviveIfDead(){
+  if(state.player.hp>0){ logShort("부활은 사망 시만"); return; }
+  showDeathModal();
+}
+function showDeathModal(){
+  const p=state.player;
+  showModal("사망", "부활: 💎5 / 풀피 / 몬스터 HP 유지\n리셋런: 스테1 Lv1 / 장비 랜덤 파괴 / 골드 차감",[
+    {text:"💎 부활(5)", disabled:p.dia<5, fn:()=>revive()},
+    {text:"🔁 리셋런", fn:()=>resetRun()},
+    {text:"닫기", fn:()=>closeModal()}
+  ]);
+}
+function revive(){
+  const p=state.player;
+  if(p.dia<5){ logShort("❌ 다이아 부족"); return; }
+  p.dia-=5;
+  p.hp=getTotalMaxHp();
+  logShort("💎 부활 풀피");
+  sfxLegend();
+  closeModal();
+  autoSave(); render();
+}
+function destroyRandomItems(n){
+  const p=state.player;
+  const gearCandidates=p.gear.filter(g=>!g.isBranch);
+  const cosCandidates=p.cosmetics.slice();
+  const all=[
+    ...gearCandidates.map(x=>({kind:"gear", id:x.id, name:x.name})),
+    ...cosCandidates.map(x=>({kind:"cos", id:x.id, name:x.name}))
+  ];
+  const destroyed=[];
+  for(let i=0;i<n;i++){
+    if(all.length===0) break;
+    const idx=Math.floor(Math.random()*all.length);
+    const pick=all.splice(idx,1)[0];
+    destroyed.push(pick.name);
+    if(pick.kind==="gear"){
+      if(p.equip.weaponR===pick.id) p.equip.weaponR=null;
+      if(p.equip.weaponL===pick.id) p.equip.weaponL=null;
+      if(p.equip.weaponM===pick.id) p.equip.weaponM=null;
+      if(p.equip.armor===pick.id) p.equip.armor=null;
+      p.gear=p.gear.filter(g=>g.id!==pick.id);
+    }else{
+      if(p.equip.cosmetic===pick.id) p.equip.cosmetic=null;
+      p.cosmetics=p.cosmetics.filter(c=>c.id!==pick.id);
+    }
+  }
+  return destroyed;
+}
+function resetRun(){
+  const p=state.player;
+  const stage=p.stage;
+
+  let minD=0,maxD=1;
+  if(stage>=50 && stage<100){ minD=0; maxD=2; }
+  if(stage>=100){ minD=1; maxD=3; }
+  const destroyCount=randi(minD,maxD);
+
+  const lossPct=clamp(0.05+stage*0.002, 0.05, 0.80);
+  const lostGold=Math.floor(p.gold*lossPct);
+  p.gold=Math.max(0,p.gold-lostGold);
+
+  const destroyed=destroyRandomItems(destroyCount);
+
+  p.level=1; p.exp=0; p.needExp=20;
+  p.stage=1;
+  p.baseAtk=5; p.baseMaxHp=100;
+  p.hp=100;
+  p.shield=0; p.shieldMax=0;
+  p.statuses=[]; state.monsterStatuses=[];
+  p.equip.weaponL=null; p.equip.weaponM=null;
+
+  setMonster(1);
+  closeModal();
+  logShort(`🔁 리셋런 (G-${lostGold}) 파괴:${destroyed.length?destroyed.join(", "):"없음"}`);
+  postEquip();
+}
+
+/* 가챠 */
+let chestBusy=false;
+function rarityRollGear(){ const r=Math.random()*100; if(r<5) return "legend"; if(r<18) return "epic"; if(r<45) return "rare"; return "common"; }
+function rarityRollCos(){  const r=Math.random()*100; if(r<3) return "legend"; if(r<12) return "epic"; if(r<35) return "rare"; return "common"; }
+
+function showRewardCard(el, title, lines, rarity){
+  el.className="rewardCard";
+  el.style.opacity=0;
+  el.innerHTML="";
+  requestAnimationFrame(()=>{
+    el.classList.add("rewardShow");
+    el.classList.add(RAR_COLOR_CLASS[rarity]||"");
+    if(rarity==="legend") el.classList.add("legendFlash");
+    el.style.opacity=1;
+    el.innerHTML=`
+      <div style="font-weight:1000; font-size:18px;">${title}</div>
+      <div style="opacity:.85; margin-top:4px;">등급: <b>${RAR_TEXT[rarity]}</b></div>
+      <div style="margin-top:8px; font-size:12.5px; line-height:1.5; opacity:.9;">${lines.join("<br>")}</div>
+    `;
+  });
+}
+
+function pullGear(count){
+  const p=state.player;
+  const cost=200*count;
+  if(p.gold<cost){ logShort("❌ 골드 부족"); return; }
+  if(chestBusy) return;
+  chestBusy=true;
+
+  p.gold-=cost;
+  sfxChest();
+
+  const chest=document.getElementById("chestGear");
+  const card=document.getElementById("rewardGear");
+  chest.classList.add("chestShake");
+  setTimeout(()=>chest.classList.remove("chestShake"),650);
+
+  const results=[];
+  setTimeout(()=>{
+    for(let i=0;i<count;i++){
+      const rar=rarityRollGear();
+      const isWeapon=chance(70);
+
+      if(isWeapon){
+        const list=WEAPON_POOL.filter(w=>w.rarity===rar);
+        const w=clone(list[Math.floor(Math.random()*list.length)]);
+        const item={id:uid(), type:"weapon", name:w.name, rarity:rar, atk:w.atk, traits:rollTraits(rar,"weapon")};
+        state.player.gear.push(item);
+        results.push(`🗡 ${item.name} [${RAR_TEXT[rar]}]`);
+      }else{
+        const list=ARMOR_POOL.filter(a=>a.rarity===rar);
+        const a=clone(list[Math.floor(Math.random()*list.length)]);
+        const item={id:uid(), type:"armor", name:a.name, rarity:rar, hpBonus:a.hpBonus, dmgReduce:a.dmgReduce, traits:rollTraits(rar,"armor")};
+        state.player.gear.push(item);
+        results.push(`🛡 ${item.name} [${RAR_TEXT[rar]}]`);
+      }
+      if(rar==="legend") sfxLegend();
+    }
+
+    if(count===1){
+      const lastItem=state.player.gear[state.player.gear.length-1];
+      const lines=(lastItem.type==="weapon")
+        ? [`ATK +${lastItem.atk}`, `특성: ${(lastItem.traits||[]).map(t=>t.name).join(", ")||"없음"}`]
+        : [`HP +${lastItem.hpBonus}`, `피감 ${lastItem.dmgReduce}%`, `특성: ${(lastItem.traits||[]).map(t=>t.name).join(", ")||"없음"}`];
+      showRewardCard(card, lastItem.name, lines, lastItem.rarity);
+      logShort(`📦 획득 ${results[0]}`);
+    }else{
+      showModal("10연 결과", results.join("\n"), [{text:"확인", fn:()=>closeModal()}]);
+      logShort("🎰 10연 완료");
+    }
+
+    postEquip();
+    chestBusy=false;
+    autoSave();
+  }, 780);
+}
+
+function pullCosmetic(count){
+  const p=state.player;
+  const cost=5*count;
+  if(p.dia<cost){ logShort("❌ 다이아 부족"); return; }
+  if(chestBusy) return;
+  chestBusy=true;
+
+  p.dia-=cost;
+  sfxChest();
+
+  const chest=document.getElementById("chestCos");
+  const card=document.getElementById("rewardCos");
+  chest.classList.add("chestShake");
+  setTimeout(()=>chest.classList.remove("chestShake"),650);
+
+  const results=[];
+  setTimeout(()=>{
+    for(let i=0;i<count;i++){
+      const rar=rarityRollCos();
+      const list=COS_POOL.filter(c=>c.rarity===rar);
+      const c=clone(list[Math.floor(Math.random()*list.length)]);
+      const item={id:uid(), name:c.name, rarity:rar, bonusAtk:c.bonusAtk, bonusHp:c.bonusHp, traits:rollTraits(rar,"cosmetic")};
+      p.cosmetics.push(item);
+      results.push(`✨ ${item.name} [${RAR_TEXT[rar]}]`);
+      if(rar==="legend") sfxLegend();
+    }
+
+    if(count===1){
+      const last=p.cosmetics[p.cosmetics.length-1];
+      showRewardCard(card, last.name, [`ATK +${last.bonusAtk} / HP +${last.bonusHp}`, `특성: ${(last.traits||[]).map(t=>t.name).join(", ")||"없음"}`], last.rarity);
+      logShort(`🎀 획득 ${results[0]}`);
+    }else{
+      showModal("치장 10연 결과", results.join("\n"), [{text:"확인", fn:()=>closeModal()}]);
+      logShort("✨ 치장 10연 완료");
+    }
+
+    postEquip();
+    chestBusy=false;
+    autoSave();
+  }, 780);
+}
+
+/* 합성 */
+function rarityUp(r){
+  if(r==="common") return "rare";
+  if(r==="rare") return "epic";
+  if(r==="epic") return "legend";
+  return null;
+}
+function fuseGear(){
+  const p=state.player;
+  const candidates=p.gear.filter(g=>!g.isBranch);
+  const groups={ weapon:{common:[],rare:[],epic:[]}, armor:{common:[],rare:[],epic:[]} };
+  for(const g of candidates){
+    if(g.rarity==="legend") continue;
+    if(groups[g.type] && groups[g.type][g.rarity]) groups[g.type][g.rarity].push(g);
+  }
+
+  let pickType=null, fromR=null;
+  for(const type of ["weapon","armor"]){
+    for(const r of ["common","rare","epic"]){
+      if(groups[type][r].length>=3){ pickType=type; fromR=r; break; }
+    }
+    if(pickType) break;
+  }
+  if(!pickType){ logShort("❌ 합성 재료 부족"); return; }
+
+  const toR=rarityUp(fromR);
+  const mats=groups[pickType][fromR].slice(0,3);
+  const matNames=mats.map(x=>x.name);
+
+  const removeIds=mats.map(x=>x.id);
+  for(const id of removeIds){
+    if(p.equip.weaponR===id) p.equip.weaponR=null;
+    if(p.equip.weaponL===id) p.equip.weaponL=null;
+    if(p.equip.weaponM===id) p.equip.weaponM=null;
+    if(p.equip.armor===id) p.equip.armor=null;
+  }
+  p.gear=p.gear.filter(g=>!removeIds.includes(g.id));
+
+  let newItem;
+  if(pickType==="weapon"){
+    const list=WEAPON_POOL.filter(w=>w.rarity===toR);
+    const w=clone(list[Math.floor(Math.random()*list.length)]);
+    newItem={id:uid(), type:"weapon", name:w.name, rarity:toR, atk:w.atk, traits:rollTraits(toR,"weapon")};
+  }else{
+    const list=ARMOR_POOL.filter(a=>a.rarity===toR);
+    const a=clone(list[Math.floor(Math.random()*list.length)]);
+    newItem={id:uid(), type:"armor", name:a.name, rarity:toR, hpBonus:a.hpBonus, dmgReduce:a.dmgReduce, traits:rollTraits(toR,"armor")};
+  }
+  p.gear.push(newItem);
+
+  sfxFusion();
+  logShort(`⚒ 합성 성공 ${RAR_TEXT[fromR]}→${RAR_TEXT[toR]}`);
+
+  showModal(
+    "합성 결과",
+    `재료(3)\n- ${matNames.join("\n- ")}\n\n결과\n- ${newItem.type==="weapon"?"🗡":"🛡"} ${newItem.name} [${RAR_TEXT[newItem.rarity]}]\n특성: ${(newItem.traits||[]).map(t=>t.name).join(", ")||"없음"}`,
+    [{text:"확인", fn:()=>closeModal()}]
+  );
+
+  postEquip(); autoSave();
+}
+function fuseCosmetic(){
+  const p=state.player;
+  const groups={common:[],rare:[],epic:[]};
+  for(const c of p.cosmetics){
+    if(c.rarity==="legend") continue;
+    if(groups[c.rarity]) groups[c.rarity].push(c);
+  }
+  let fromR=null;
+  for(const r of ["common","rare","epic"]){
+    if(groups[r].length>=3){ fromR=r; break; }
+  }
+  if(!fromR){ logShort("❌ 치장 합성 재료 부족"); return; }
+
+  const toR=rarityUp(fromR);
+  const mats=groups[fromR].slice(0,3);
+  const matNames=mats.map(x=>x.name);
+  const removeIds=mats.map(x=>x.id);
+
+  if(removeIds.includes(p.equip.cosmetic)) p.equip.cosmetic=null;
+  p.cosmetics=p.cosmetics.filter(c=>!removeIds.includes(c.id));
+
+  const list=COS_POOL.filter(c=>c.rarity===toR);
+  const c0=clone(list[Math.floor(Math.random()*list.length)]);
+  const newC={id:uid(), name:c0.name, rarity:toR, bonusAtk:c0.bonusAtk, bonusHp:c0.bonusHp, traits:rollTraits(toR,"cosmetic")};
+  p.cosmetics.push(newC);
+
+  sfxFusion();
+  logShort(`⚒ 치장 합성 ${RAR_TEXT[fromR]}→${RAR_TEXT[toR]}`);
+
+  showModal(
+    "치장 합성 결과",
+    `재료(3)\n- ${matNames.join("\n- ")}\n\n결과\n- ✨ ${newC.name} [${RAR_TEXT[newC.rarity]}]\n특성: ${(newC.traits||[]).map(t=>t.name).join(", ")||"없음"}`,
+    [{text:"확인", fn:()=>closeModal()}]
+  );
+
+  postEquip(); autoSave();
+}
+
+/* 초기화 */
+function hardReset(){
+  showModal("전체 초기화","진짜 초기화 하시겠습니까 형님!!!",[
+    {text:"☠ 삭제", fn:()=>{
+      localStorage.removeItem(SAVE_KEY_MAIN);
+      localStorage.removeItem(SAVE_KEY_BACK);
+      localStorage.removeItem(ADMIN_KEY);
+      state=newGameState();
+      const branch=state.player.gear.find(g=>g.isBranch);
+      state.player.equip.weaponR=branch?.id||null;
+      document.getElementById("log").textContent="";
+      logShort("☠ 초기화 완료");
+      setMonster(1);
+      closeModal();
+      autoSave();
+      render();
+      showScreen("battle");
+      loadAdmin();
+    }},
+    {text:"취소", fn:()=>closeModal()}
+  ]);
+}
+
+/* 이스터에그 */
+function easterEgg(){
+  logShort("😊 카피바라는 기분이 좋아졌다!!!!!!!!!!");
+  if(settings.sfxEnabled){ beep(800,.12,"triangle",.15); }
+}
+
+/* =========================
+   ✅ 관리자 치트키 (모든 기능)
+   - 제목 7연타 → 비번 → 설정에 관리자 패널 표시
+   ========================= */
+const ADMIN_KEY = "capy_admin_unlocked_v1";
+let adminUnlocked = false;
+
+function loadAdmin(){
+  adminUnlocked = localStorage.getItem(ADMIN_KEY) === "1";
+  document.getElementById("adminCard").style.display = adminUnlocked ? "block" : "none";
+}
+function unlockAdmin(){
+  showModal("관리자 잠금해제", "비밀번호를 입력하라 형님!!!", [
+    { text:"비번 입력", fn:()=>{
+        const pw = prompt("관리자 비밀번호 입력");
+        if(pw === "0604"){ // ✅ 여기 비번 바꿔도 됨
+          localStorage.setItem(ADMIN_KEY,"1");
+          adminUnlocked = true;
+          document.getElementById("adminCard").style.display="block";
+          logShort("✅ 관리자 모드 ON");
+          closeModal();
+        }else{
+          logShort("❌ 비번 틀림");
+          closeModal();
+        }
+    }},
+    { text:"닫기", fn:()=>closeModal() }
+  ]);
+}
+
+function adminAddLegendWeapon(){
+  const w = clone(WEAPON_POOL.find(x=>x.rarity==="legend") || WEAPON_POOL[WEAPON_POOL.length-1]);
+  const item={id:uid(), type:"weapon", name:w.name, rarity:"legend", atk:w.atk, traits:rollTraits("legend","weapon")};
+  state.player.gear.push(item);
+  logShort(`🗡 전설 무기 지급: ${item.name}`);
+  postEquip();
+}
+function adminAddLegendArmor(){
+  const a = clone(ARMOR_POOL.find(x=>x.rarity==="legend") || ARMOR_POOL[ARMOR_POOL.length-1]);
+  const item={id:uid(), type:"armor", name:a.name, rarity:"legend", hpBonus:a.hpBonus, dmgReduce:a.dmgReduce, traits:rollTraits("legend","armor")};
+  state.player.gear.push(item);
+  logShort(`🛡 전설 방어구 지급: ${item.name}`);
+  postEquip();
+}
+function adminAddLegendCos(){
+  const c = clone(COS_POOL.find(x=>x.rarity==="legend") || COS_POOL[COS_POOL.length-1]);
+  const item={id:uid(), name:c.name, rarity:"legend", bonusAtk:c.bonusAtk, bonusHp:c.bonusHp, traits:rollTraits("legend","cosmetic")};
+  state.player.cosmetics.push(item);
+  logShort(`✨ 전설 치장 지급: ${item.name}`);
+  postEquip();
+}
+
+function adminSetStage(){
+  const v = parseInt(prompt("스테이지를 입력하라 형님 (1~999)"),10);
+  if(!Number.isFinite(v)) return;
+  state.player.stage = clamp(v,1,999);
+  setMonster(state.player.stage);
+  logShort(`➡ 스테이지 변경: ${state.player.stage}`);
+  render(); autoSave();
+}
+function adminSetLevel(){
+  const v = parseInt(prompt("레벨을 입력하라 형님 (1~200)"),10);
+  if(!Number.isFinite(v)) return;
+  state.player.level = clamp(v,1,MAX_LEVEL);
+  // 레벨에 맞춰 기본스탯 대충 보정(치트니까 간단)
+  state.player.baseAtk = 5 + (state.player.level-1)*2;
+  state.player.baseMaxHp = 100 + (state.player.level-1)*18;
+  if(state.player.level===MAX_LEVEL) awakenBranch();
+  state.player.hp = getTotalMaxHp();
+  recalcMonsterStats();
+  logShort(`📈 레벨 변경: Lv${state.player.level}`);
+  render(); autoSave();
+}
+function adminMaxAll(){
+  state.player.gold += 999999;
+  state.player.dia  += 99999;
+  state.player.healItems += 999;
+  state.player.hp = getTotalMaxHp();
+  state.player.shield = state.player.shieldMax = Math.floor(getTotalMaxHp()*0.8);
+  state.player.statuses = [];
+  state.monsterStatuses = [];
+  awakenBranch();
+  logShort("🧨 올맥스 지급(재화/회복/풀피/보호막/상태해제/나뭇가지 각성)");
+  render(); autoSave();
+}
+function adminKillMonster(){
+  state.monster.hp=0;
+  logShort("☠ 몬스터 즉사");
+  onWin();
+  render(); autoSave();
+}
+function adminGiveHeals(){
+  const v = parseInt(prompt("회복템 몇 개 추가할까 형님?"),10);
+  if(!Number.isFinite(v)) return;
+  state.player.healItems += Math.max(0,v);
+  logShort(`🧴 회복템 +${Math.max(0,v)}`);
+  render(); autoSave();
+}
+function adminClearStatuses(){
+  state.player.statuses = [];
+  state.monsterStatuses = [];
+  logShort("🧼 상태이상 전부 해제");
+  render(); autoSave();
+}
+function adminToggleInvincible(){
+  state.admin.invincible = !state.admin.invincible;
+  logShort(state.admin.invincible ? "🛡 무적 ON" : "🛡 무적 OFF");
+  render(); autoSave();
+}
+function adminToggleFreezeMonster(){
+  state.admin.freezeMonster = !state.admin.freezeMonster;
+  logShort(state.admin.freezeMonster ? "🧊 몬스터 정지 ON" : "🧊 몬스터 정지 OFF");
+  render(); autoSave();
+}
+function adminForceBoss(){
+  // 현재 스테이지를 10의 배수로 맞춰 보스 소환
+  state.player.stage = Math.max(1, Math.floor((state.player.stage+9)/10)*10);
+  setMonster(state.player.stage);
+  logShort(`🐉 보스 강제 소환: 스테${state.player.stage}`);
+  render(); autoSave();
+}
+function adminUnlockSlots(){
+  // 왼손/입 해금을 위해 레벨만 올려도 되는데, 치트니까 즉시
+  if(state.player.level < 80) state.player.level = 80;
+  // 스탯도 대충 보정
+  state.player.baseAtk = 5 + (state.player.level-1)*2;
+  state.player.baseMaxHp = 100 + (state.player.level-1)*18;
+  state.player.hp = getTotalMaxHp();
+  logShort("🔓 슬롯 해금(레벨 80으로 조정)");
+  postEquip();
+}
+
+function openAdminPanel(){
+  if(!adminUnlocked) return;
+  const body =
+`원하는 치트를 눌러라 형님!!!
+(이 기기에서만 적용)
+
+- 재화/레벨/스테이지/장비지급/무적/정지/상태해제/보스 강제/즉사/올맥스`;
+  showModal("관리자 패널", body, [
+    {text:"💰 골드 +100000", fn:()=>{state.player.gold+=100000; logShort("💰 +100000"); render(); autoSave(); closeModal();}},
+    {text:"💎 다이아 +1000", fn:()=>{state.player.dia+=1000; logShort("💎 +1000"); render(); autoSave(); closeModal();}},
+    {text:"🧴 회복템 추가", fn:()=>{adminGiveHeals(); closeModal();}},
+    {text:"📈 레벨 설정", fn:()=>{adminSetLevel(); closeModal();}},
+    {text:"➡ 스테이지 설정", fn:()=>{adminSetStage(); closeModal();}},
+    {text:"🔓 슬롯 해금(80)", fn:()=>{adminUnlockSlots(); closeModal();}},
+    {text:"🗡 전설 무기 지급", fn:()=>{adminAddLegendWeapon(); closeModal();}},
+    {text:"🛡 전설 방어구 지급", fn:()=>{adminAddLegendArmor(); closeModal();}},
+    {text:"✨ 전설 치장 지급", fn:()=>{adminAddLegendCos(); closeModal();}},
+    {text:"🐉 보스 강제 소환", fn:()=>{adminForceBoss(); closeModal();}},
+    {text:"☠ 몬스터 즉사", fn:()=>{adminKillMonster(); closeModal();}},
+    {text:"🧼 상태이상 전부 해제", fn:()=>{adminClearStatuses(); closeModal();}},
+    {text:"🛡 무적 토글", fn:()=>{adminToggleInvincible(); closeModal();}},
+    {text:"🧊 몬스터 정지 토글", fn:()=>{adminToggleFreezeMonster(); closeModal();}},
+    {text:"🧨 올맥스 지급", fn:()=>{adminMaxAll(); closeModal();}},
+    {text:"닫기", fn:()=>closeModal()},
+  ]);
+}
+
+/* 제목 7연타 */
+let titleTap=0, titleTimer=null;
+document.getElementById("gameTitle").addEventListener("click", ()=>{
+  titleTap++;
+  clearTimeout(titleTimer);
+  titleTimer=setTimeout(()=>titleTap=0, 900);
+  if(titleTap>=7){
+    titleTap=0;
+    unlockAdmin();
+  }
+});
+
+/* 시작 */
+document.addEventListener("DOMContentLoaded", ()=>{
+  initOverlayHandlers();
+  loadSettings();
+  renderSettingsButtons();
+
+  loadAdmin();
+
+  const loaded=loadGame();
+  if(loaded){
+    state=loaded;
+    if(state.settings){
+      settings.bgmEnabled=!!state.settings.bgmEnabled;
+      settings.sfxEnabled=!!state.settings.sfxEnabled;
+    }
+    // 버전 올라오면서 admin 필드 없을 수 있어서 보정
+    if(!state.admin) state.admin = { invincible:false, freezeMonster:false };
+    logShort("📂 로딩 완료");
+  }else{
+    state=newGameState();
+    logShort("🔥 시작");
+  }
+
+  // 시작 무기 보정
+  const branch=state.player.gear.find(g=>g.isBranch);
+  if(!state.player.equip.weaponR && branch) state.player.equip.weaponR=branch.id;
+
+  setMonster(state.player.stage);
+  if(settings.bgmEnabled) startBgm();
+
+  // 이스터에그 꾹 누르기
+  let pressTimer=null;
+  const pImg=document.getElementById("playerImg");
+  pImg.addEventListener("touchstart", ()=>{ pressTimer=setTimeout(easterEgg, 900); });
+  pImg.addEventListener("touchend", ()=>{ clearTimeout(pressTimer); });
+  pImg.addEventListener("mousedown", ()=>{ pressTimer=setTimeout(easterEgg, 900); });
+  pImg.addEventListener("mouseup", ()=>{ clearTimeout(pressTimer); });
+  pImg.addEventListener("mouseleave", ()=>{ clearTimeout(pressTimer); });
+
+  setInvTab("weapon");
+  render();
+  autoSave();
+});
+</script>
+</body>
+</html>
