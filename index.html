@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>강해져바라</title>
+<style>
+:root{
+--bg:#0f0f14;--card:rgba(255,255,255,.06);
+--hp:#44ff6a;--mh:#ff6a6a;--exp:#b88cff;
+--gold:#f6c453;--dia:#6fd3ff;
+--myth:#ff3a3a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font-family:system-ui}
+header{text-align:center;font-weight:900;font-size:24px;padding:12px}
+.wrap{max-width:720px;margin:auto;padding:10px 10px 90px}
+.card{background:var(--card);padding:12px;border-radius:14px;margin-bottom:10px}
+.bar{height:10px;background:#222;border-radius:20px;overflow:hidden}
+.fill{height:100%;width:0%}
+.hp{background:var(--hp)}
+.mh{background:var(--mh)}
+.exp{background:var(--exp)}
+.btn{width:100%;padding:12px;margin-top:6px;border:0;border-radius:10px;font-weight:700}
+.ok{background:#2ecc71}
+.gold{background:rgba(246,196,83,.2)}
+.dia{background:rgba(111,211,255,.2)}
+.tabbar{position:fixed;bottom:0;left:0;right:0;background:#111;padding:8px;display:flex;gap:6px}
+.tabbar button{flex:1;padding:10px;border-radius:10px;border:0;background:#222;color:#fff}
+.hidden{display:none}
+.sprite{width:110px;height:110px;object-fit:contain}
+.pet{width:60px;height:60px;object-fit:contain}
+.myth{filter:drop-shadow(0 0 10px var(--myth))}
+</style>
+</head>
+<body>
+<header>강해져바라</header>
+<div class="wrap">
+
+<section id="battle">
+
+<div class="card">
+<div>Lv <span id="lv"></span> / 200</div>
+<div>Stage <span id="stage"></span></div>
+<div id="battleCurrency"></div>
+<div>ATK <span id="atk"></span> | CRIT <span id="crit"></span>%</div>
+<div>회복템 <span id="healCount"></span></div>
+<div style="margin-top:6px">EXP</div>
+<div class="bar"><div id="expBar" class="fill exp"></div></div>
+</div>
+
+<div class="card" style="text-align:center">
+<div id="petRow"></div>
+<img id="playerImg" class="sprite" src="capybara.png">
+<div>VS</div>
+<img id="monsterImg" class="sprite" src="monster1.png">
+<div id="monsterName"></div>
+<div class="bar"><div id="monsterHpBar" class="fill mh"></div></div>
+<div class="bar"><div id="hpBar" class="fill hp"></div></div>
+</div>
+
+<div class="card">
+<button class="btn ok" onclick="attack()">공격</button>
+<button class="btn" onclick="heal()">회복</button>
+<button class="btn dia" onclick="revive()">부활</button>
+<div id="log" style="font-size:13px;margin-top:6px"></div>
+</div>
+
+</section>
+
+<section id="shop" class="hidden">
+<div class="card">
+<div>💰 <span id="gold"></span> | 💎 <span id="dia"></span></div>
+<button class="btn ok" onclick="claimDaily()">출석체크</button>
+</div>
+
+<div class="card">
+<div>회복 가챠</div>
+<button class="btn gold" onclick="healGacha(1)">1회 1000G</button>
+<button class="btn gold" onclick="healGacha(10)">10회 10000G</button>
+</div>
+
+<div class="card">
+<div>장비 가챠</div>
+<button class="btn gold" onclick="gearGacha(1)">1회 200G</button>
+<button class="btn gold" onclick="gearGacha(10)">10회 2000G</button>
+</div>
+
+<div class="card">
+<div>치장 가챠</div>
+<button class="btn dia" onclick="cosGacha(1)">1회 5D</button>
+<button class="btn dia" onclick="cosGacha(10)">10회 50D</button>
+</div>
+</section>
+
+</div>
+
+<div class="tabbar">
+<button onclick="show('battle')">전투</button>
+<button onclick="show('shop')">상점</button>
+</div>
+
+<script>
+const MAX_LV=200;
+let state={
+lv:1,exp:0,need:20,stage:1,
+hp:100,maxHp:100,atk:5,
+gold:300,dia:10,healItem:0,
+monster:{hp:60,max:60,atk:6,boss:false},
+pets:[null,null],
+mythStone:0,
+daily:{last:"",streak:0}
+};
+
+function save(){localStorage.setItem("capy_save_v10",JSON.stringify(state))}
+function load(){
+let s=localStorage.getItem("capy_save_v10");
+if(s)state=JSON.parse(s)
+}
+function show(id){
+document.getElementById("battle").classList.add("hidden");
+document.getElementById("shop").classList.add("hidden");
+document.getElementById(id).classList.remove("hidden");
+render();
+}
+
+function log(t){document.getElementById("log").innerText=t}
+
+function spawn(){
+let boss=state.stage%10===0;
+state.monster.boss=boss;
+state.monster.max=boss?150+state.stage*15:60+state.stage*8;
+state.monster.hp=state.monster.max;
+state.monster.atk=boss?15+state.stage:6+state.stage;
+document.getElementById("monsterName").innerText=boss?"보스 드래곤":"몬스터";
+document.getElementById("monsterImg").src=boss?"boss.png":"monster1.png";
+}
+
+function nextExp(n,l){
+if(l<20)return Math.floor(n*1.16+10);
+if(l<60)return Math.floor(n*1.11+14);
+if(l<120)return Math.floor(n*1.14+18);
+return Math.floor(n*1.17+22);
+}
+
+function attack(){
+if(state.hp<=0)return log("사망 상태");
+let crit=Math.random()*100<5;
+let dmg=crit?state.atk*2:state.atk;
+state.monster.hp-=dmg;
+log("공격 -"+dmg+(crit?" (치명)":""));
+if(state.monster.hp<=0)return win();
+let md=state.monster.atk;
+md=Math.min(md,Math.floor(state.hp*0.95));
+state.hp-=md;
+if(state.hp<=0)log("사망");
+render();save();
+}
+
+function win(){
+let boss=state.monster.boss;
+let gold=Math.floor((14+state.stage*3)*(boss?2.5:1));
+let exp=Math.floor((12+state.stage*2)*(boss?2:1));
+state.gold+=gold;
+state.exp+=exp;
+state.healItem+=Math.floor(Math.random()*5)+3;
+if(boss)state.mythStone+=Math.floor(Math.random()*2)+1;
+while(state.exp>=state.need&&state.lv<MAX_LV){
+state.exp-=state.need;
+state.lv++;
+state.need=nextExp(state.need,state.lv);
+state.maxHp+=16;
+state.atk+=2;
+state.hp=state.maxHp;
+}
+state.stage++;
+spawn();
+render();save();
+}
+
+function heal(){
+if(state.healItem<=0)return log("회복템 없음");
+state.healItem--;
+state.hp=Math.min(state.hp+Math.floor(state.maxHp*0.35),state.maxHp);
+render();save();
+}
+
+function revive(){
+if(state.hp>0)return;
+if(state.dia>=5){
+state.dia-=5;
+state.hp=state.maxHp;
+render();save();
+}
+}
+
+function healGacha(n){
+let cost=1000*n;
+if(state.gold<cost)return log("골드 부족");
+state.gold-=cost;
+let total=0;
+for(let i=0;i<n;i++)total+=Math.floor(Math.random()*5)+3;
+state.healItem+=total;
+render();save();
+}
+
+function gearGacha(n){
+let cost=200*n;
+if(state.gold<cost)return log("골드 부족");
+state.gold-=cost;
+state.atk+=n;
+render();save();
+}
+
+function cosGacha(n){
+let cost=5*n;
+if(state.dia<cost)return log("다이아 부족");
+state.dia-=cost;
+render();save();
+}
+
+function claimDaily(){
+let today=new Date().toDateString();
+if(state.daily.last===today)return log("이미 받음");
+state.daily.last=today;
+state.daily.streak++;
+if(state.daily.streak>7)state.daily.streak=1;
+state.dia+=5*state.daily.streak;
+render();save();
+}
+
+function render(){
+document.getElementById("lv").innerText=state.lv;
+document.getElementById("stage").innerText=state.stage;
+document.getElementById("atk").innerText=state.atk;
+document.getElementById("crit").innerText=5;
+document.getElementById("healCount").innerText=state.healItem;
+document.getElementById("hpBar").style.width=(state.hp/state.maxHp*100)+"%";
+document.getElementById("monsterHpBar").style.width=(state.monster.hp/state.monster.max*100)+"%";
+document.getElementById("expBar").style.width=(state.exp/state.need*100)+"%";
+
+document.getElementById("gold").innerText=state.gold;
+document.getElementById("dia").innerText=state.dia;
+
+document.getElementById("battleCurrency").innerText="";
+}
+
+load();
+spawn();
+render();
+/* =========================
+   PART3 - 창고/장비/펫/신화 시스템 (안정 압축본)
+========================= */
+
+if(!state.player.inventory){
+  state.player.inventory = [];
+}
+if(!state.player.pets){
+  state.player.pets = [];
+}
+if(!state.player.equip){
+  state.player.equip = {
+    weapon:null,
+    armor:null,
+    cosmetic:null,
+    pet1:null,
+    pet2:null
+  };
+}
+if(!state.player.mythicStone){
+  state.player.mythicStone = 0;
+}
+
+/* -----------------------
+   등급 설정
+----------------------- */
+const RARITY_COLOR = {
+  normal:"#aaa",
+  rare:"#4da6ff",
+  epic:"#c266ff",
+  legend:"#ffcc33",
+  mythic:"#ff3a3a"
+};
+
+/* -----------------------
+   창고 UI 렌더
+----------------------- */
+function renderWarehouse(){
+
+  const screen = document.getElementById("screenWarehouse");
+
+  let html = `
+  <div class="card">
+    <b>🎒 장비</b><br><br>
+  `;
+
+  if(state.player.inventory.length===0){
+    html += `<div class="tiny">장비 없음</div>`;
+  }
+
+  state.player.inventory.forEach((item,i)=>{
+
+    html += `
+    <div style="border:1px solid #333;padding:8px;margin-bottom:8px;border-radius:8px;">
+      <div style="color:${RARITY_COLOR[item.rarity]}">
+        ${item.name} (${item.rarity})
+        ${item.enhance?` +${item.enhance}`:""}
+        ${item.mythicLevel?` 🔥${item.mythicLevel}`:""}
+      </div>
+      <div class="tiny">ATK +${item.atk}</div>
+      <button class="btn" onclick="equipItem(${i})">장착</button>
+      ${item.rarity==="legend" ? `<button class="btn" onclick="enhanceLegend(${i})">강화</button>`:""}
+      ${item.rarity==="legend" && item.enhance>=5 ? `<button class="btn btnDia" onclick="evolveMythic(${i})">신화진화(50💎)</button>`:""}
+      ${item.rarity==="mythic" ? `<button class="btn btnGold" onclick="enhanceMythicItem(${i})">신화강화(1석)</button>`:""}
+    </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  /* 펫 */
+  html += `
+  <div class="card">
+    <b>🐾 펫</b><br><br>
+  `;
+
+  if(state.player.pets.length===0){
+    html += `<div class="tiny">펫 없음</div>`;
+  }
+
+  state.player.pets.forEach((pet,i)=>{
+    html += `
+    <div style="border:1px solid #333;padding:8px;margin-bottom:8px;border-radius:8px;">
+      <div>${pet.name} (${pet.rarity})</div>
+      <div class="tiny">ATK +${pet.atk} HP +${pet.hp}</div>
+      <button class="btn" onclick="equipPet(${i},1)">슬롯1</button>
+      <button class="btn" onclick="equipPet(${i},2)">슬롯2</button>
+    </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  screen.innerHTML = html;
+}
+
+/* -----------------------
+   장착
+----------------------- */
+function equipItem(index){
+  const item = state.player.inventory[index];
+  state.player.equip.weapon = item;
+  logMini(`⚔ ${item.name} 장착`);
+  render();
+  renderWarehouse();
+  autoSave();
+}
+
+/* -----------------------
+   전설 강화
+----------------------- */
+function enhanceLegend(index){
+  const item = state.player.inventory[index];
+  if(item.rarity!=="legend") return;
+
+  item.enhance = (item.enhance||0)+1;
+  item.atk = Math.floor(item.atk*1.1);
+  logMini(`✨ 전설 강화 +${item.enhance}`);
+  renderWarehouse();
+  render();
+  autoSave();
+}
+
+/* -----------------------
+   신화 진화
+----------------------- */
+function evolveMythic(index){
+  const item = state.player.inventory[index];
+  if(state.player.dia<50){
+    logMini("💎 부족");
+    return;
+  }
+  state.player.dia-=50;
+  item.rarity="mythic";
+  item.enhance=0;
+  item.mythicLevel=0;
+  item.atk=Math.floor(item.atk*1.5);
+  logMini(`🔥 ${item.name} 신화 진화`);
+  renderWarehouse();
+  render();
+  autoSave();
+}
+
+/* -----------------------
+   신화 강화
+----------------------- */
+function enhanceMythicItem(index){
+  const item = state.player.inventory[index];
+  if(state.player.mythicStone<=0){
+    logMini("❌ 신화석 부족");
+    return;
+  }
+  state.player.mythicStone--;
+  item.mythicLevel = (item.mythicLevel||0)+1;
+  item.atk = Math.floor(item.atk*1.12);
+  logMini(`💎 신화 강화 +${item.mythicLevel}`);
+  renderWarehouse();
+  render();
+  autoSave();
+}
+
+/* -----------------------
+   펫 장착
+----------------------- */
+function equipPet(index,slot){
+  const pet = state.player.pets[index];
+
+  if(slot===1 && state.player.level<40){
+    logMini("Lv40 필요");
+    return;
+  }
+  if(slot===2 && state.player.level<120){
+    logMini("Lv120 필요");
+    return;
+  }
+
+  state.player.equip["pet"+slot] = pet;
+  logMini(`🐾 ${pet.name} 슬롯${slot} 장착`);
+  render();
+  renderWarehouse();
+  autoSave();
+}
+
+/* -----------------------
+   전투 능력치 반영
+----------------------- */
+const _getTotalAtk2 = getTotalAtk;
+getTotalAtk = function(){
+  let base = _getTotalAtk2();
+  if(state.player.equip.weapon){
+    base += state.player.equip.weapon.atk;
+  }
+  if(state.player.equip.pet1){
+    base += state.player.equip.pet1.atk;
+  }
+  if(state.player.equip.pet2){
+    base += state.player.equip.pet2.atk;
+  }
+  return base;
+};
+
+/* -----------------------
+   화면 전환시 창고 렌더
+----------------------- */
+const _showScreen2 = showScreen;
+showScreen = function(name){
+  _showScreen2(name);
+  if(name==="warehouse"){
+    renderWarehouse();
+  }
+};
+
+</script>
+</body>
+</html>
