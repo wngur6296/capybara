@@ -1,0 +1,1663 @@
+<!--
+강해져바라 v0.9 (분할 1/3) - UI/전투창 개편 + 펫 안전 렌더 + EXP바 + 몬스터 잘림 방지
+- 이 파일은 "통째 교체(A)"용 index.html PART1
+- PART2/3 코드는 아래 마커( PART2_START / PART3_START ) 사이에 그대로 이어붙이면 완성됨
+-->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>강해져바라</title>
+  <style>
+    :root{
+      --bg:#0e0e12;
+      --card:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.12);
+      --shadow:rgba(0,0,0,.6);
+      --gold:#f6c453;
+      --dia:#6fd3ff;
+
+      --hp:#44ff6a;
+      --shield:#4aa3ff;
+      --mh:#ff7b7b;
+
+      --muted:rgba(255,255,255,.75);
+      --danger:#ff4a4a;
+      --ok:#4bff8c;
+      --exp:#b88cff;
+
+      --myth:#ff3a3a; /* 붉은 광채 베이스 */
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; padding:0;
+      background:var(--bg);
+      color:#fff;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      -webkit-user-select:none; user-select:none;
+      -webkit-touch-callout:none;
+      touch-action:manipulation;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    header{
+      padding:14px 12px 4px;
+      text-align:center;
+      font-weight:1000;
+      font-size:28px;
+      letter-spacing:.5px;
+      text-shadow:0 0 14px rgba(255,215,0,.35);
+    }
+    .sub{
+      text-align:center;
+      opacity:.78;
+      font-size:12.5px;
+      margin-bottom:10px;
+    }
+
+    .wrap{
+      max-width:720px;
+      margin:0 auto;
+      padding:0 10px 92px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      box-shadow:0 0 12px var(--shadow);
+      padding:12px;
+      margin:10px 0;
+    }
+
+    .row{display:flex; gap:10px; align-items:center; justify-content:space-between}
+    .col{display:flex; flex-direction:column; gap:6px}
+    .tiny{font-size:12px; opacity:.8}
+    .mono{font-variant-numeric:tabular-nums}
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.35);
+      font-size:12.5px;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    /* 상단 HUD */
+    .hud{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+    .statBox{
+      padding:10px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.30)
+    }
+    .statBox .k{opacity:.8; font-size:12px}
+    .statBox .v{font-weight:1000; font-size:14px; margin-top:2px}
+    .hud2{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    /* EXP 바 */
+    .expWrap{
+      margin-top:10px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.28);
+      border-radius:14px;
+      padding:10px;
+    }
+    .expTop{
+      display:flex; align-items:center; justify-content:space-between;
+      font-size:12.5px;
+      opacity:.9;
+      margin-bottom:8px;
+      gap:10px;
+    }
+    .bar{
+      height:12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .fill{height:100%; width:0%; transition:width .22s ease}
+    .fill.hp{background:var(--hp)}
+    .fill.shield{background:var(--shield)}
+    .fill.mh{background:var(--mh)}
+    .fill.exp{background:var(--exp)}
+
+    /* =============================
+       전투 영역 (세로 화면 + 가로 전투창)
+       [펫1][카피바라][펫2] ⚔ [몬스터]
+       ============================= */
+    .battleArea{
+      position:relative;
+      overflow:hidden; /* 배경용 */
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.10);
+      min-height:240px;
+      background:
+        radial-gradient(1100px 420px at 50% 35%, rgba(75,255,140,.10), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.45));
+    }
+    .battleArea.boss{
+      background:
+        radial-gradient(1100px 420px at 50% 35%, rgba(255,80,80,.14), transparent 60%),
+        radial-gradient(900px 380px at 60% 40%, rgba(255,215,0,.08), transparent 65%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.55));
+    }
+
+    .battleRow{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 10px 8px;
+    }
+
+    /* 왼쪽 팀(펫-카피-펫) */
+    .team{
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      gap:6px;
+      flex: 1 1 auto;
+      min-width:0;
+    }
+
+    .vs{
+      flex:0 0 auto;
+      font-weight:1000;
+      opacity:.85;
+      padding:0 4px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      font-size:12.5px;
+      white-space:nowrap;
+    }
+
+    /* 오른쪽 몬스터 */
+    .enemy{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      flex: 0 0 150px;
+    }
+
+    /* 이미지 프레임 */
+    .spriteBox{
+      position:relative;
+      width:110px;
+      height:110px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 auto;
+    }
+    .spriteBox.small{ width:56px; height:56px; }
+    .spriteBox.enemy{ width:120px; height:120px; }
+
+    /* ✅ 잘림 방지 핵심: contain + max */
+    img.sprite{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:block;
+      filter:drop-shadow(0 8px 10px rgba(0,0,0,.55));
+      transition:transform .18s;
+    }
+
+    /* 오버레이(방어구/치장/입) */
+    .overlay{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .overlay img{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      filter:drop-shadow(0 6px 8px rgba(0,0,0,.45));
+    }
+
+    /* 펫 슬롯 */
+    .petSlot{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-end;
+      gap:4px;
+      width:64px;
+      flex:0 0 64px;
+    }
+    .petLabel{
+      font-size:11px;
+      opacity:.85;
+      text-align:center;
+      max-width:64px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .lock{
+      font-size:11px;
+      opacity:.8;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.35);
+    }
+
+    /* 신화 붉은 오라 (펫/장비 공용 클래스) */
+    .mythAura{
+      filter: drop-shadow(0 0 12px rgba(255,58,58,.65)) drop-shadow(0 0 22px rgba(255,58,58,.28));
+      animation: mythPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes mythPulse{
+      0%,100%{ transform:translateY(0) scale(1.0); }
+      50%{ transform:translateY(-1px) scale(1.03); }
+    }
+
+    /* 이름/HP/상태이상 */
+    .battleInfo{
+      padding:0 10px 12px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+    .miniLine{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .statusIcons{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-start;
+      min-height:20px;
+    }
+    .sicon{
+      font-size:16px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.35);
+      line-height:1.1;
+    }
+
+    /* 버튼 */
+    .btn{
+      width:100%;
+      border:0;
+      border-radius:14px;
+      padding:14px 12px;
+      margin:8px 0 0;
+      background:#1d1d24;
+      color:#fff;
+      font-weight:900;
+      font-size:16px;
+      box-shadow:0 0 10px rgba(0,0,0,.6);
+    }
+    .btn:active{transform:scale(.99)}
+    .btnGold{background:rgba(246,196,83,.14); border:1px solid rgba(246,196,83,.28)}
+    .btnDia{background:rgba(111,211,255,.14); border:1px solid rgba(111,211,255,.28)}
+    .btnOk{background:rgba(75,255,140,.14); border:1px solid rgba(75,255,140,.26)}
+    .btnDanger{background:rgba(255,74,74,.16); border:1px solid rgba(255,74,74,.28)}
+    .muted{opacity:.75}
+
+    /* 로그(미니) */
+    .log{
+      height:86px;
+      overflow:hidden; /* ✅ 미니 로그: 스크롤/장문 X */
+      background:rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      padding:10px;
+      font-size:13px;
+      line-height:1.45;
+      white-space:pre-line;
+    }
+
+    /* 하단 탭 */
+    .tabbar{
+      position:fixed;
+      left:0; right:0; bottom:0;
+      background:rgba(15,15,20,.92);
+      border-top:1px solid rgba(255,255,255,.10);
+      padding:10px 10px calc(12px + env(safe-area-inset-bottom));
+      backdrop-filter: blur(10px);
+    }
+    .tabs{
+      max-width:720px;
+      margin:0 auto;
+      display:flex;
+      gap:10px;
+    }
+    .tab{
+      flex:1;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      padding:10px 8px;
+      font-weight:1000;
+      font-size:13px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+    }
+    .tab.active{
+      background:rgba(255,255,255,.12);
+      border-color:rgba(255,255,255,.18);
+    }
+
+    /* 모달 */
+    .modalBack{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.65);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:999;
+    }
+    .modal{
+      width:min(560px, 100%);
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(20,20,28,.96);
+      box-shadow:0 0 22px rgba(0,0,0,.75);
+      padding:12px;
+    }
+    .modalHead{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .modalTitle{font-weight:1000}
+    .xbtn{
+      border:0;
+      background:rgba(255,255,255,.08);
+      color:#fff;
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:900;
+    }
+
+    /* 간단 애니메이션 */
+    .shake{animation:shake .24s}
+    @keyframes shake{
+      0%{transform:translateX(0)}
+      25%{transform:translateX(-8px)}
+      50%{transform:translateX(8px)}
+      75%{transform:translateX(-8px)}
+      100%{transform:translateX(0)}
+    }
+    .dash{animation:dash .22s}
+    @keyframes dash{
+      0%{transform:translateX(0)}
+      50%{transform:translateX(24px) scale(1.06)}
+      100%{transform:translateX(0)}
+    }
+    .critText{
+      position:absolute;
+      left:50%; top:46%;
+      transform:translate(-50%,-50%);
+      font-size:34px;
+      font-weight:1000;
+      color:var(--gold);
+      text-shadow:0 0 14px rgba(255,0,0,.55);
+      opacity:0;
+      pointer-events:none;
+    }
+    .showCrit{animation:critPop .7s ease-out}
+    @keyframes critPop{
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.6)}
+      30%{opacity:1; transform:translate(-50%,-50%) scale(1.35)}
+      100%{opacity:0; transform:translate(-50%,-50%) scale(1.05)}
+    }
+
+    /* 반응형 미세조정 */
+    @media (max-width:420px){
+      .enemy{flex-basis:140px}
+      .spriteBox{width:102px;height:102px}
+      .spriteBox.enemy{width:112px;height:112px}
+      .petSlot{width:60px; flex-basis:60px}
+      .spriteBox.small{width:52px;height:52px}
+    }
+  </style>
+</head>
+
+<body>
+  <header>강해져바라</header>
+  <div class="sub">카피바라를 강하게 키워봅시다!!!</div>
+
+  <div class="wrap">
+
+    <!-- ====== 전투 화면 ====== -->
+    <section id="screenBattle">
+
+      <div class="card">
+        <div class="hud">
+          <div class="statBox">
+            <div class="k">레벨</div>
+            <div class="v"><span id="uiLv" class="mono">1</span> / 200</div>
+          </div>
+          <div class="statBox">
+            <div class="k">스테이지</div>
+            <div class="v"><span id="uiStage" class="mono">1</span> · <span id="uiZone" class="mono">초원</span></div>
+          </div>
+          <div class="statBox">
+            <div class="k">골드</div>
+            <div class="v">💰 <span id="uiGold" class="mono">0</span></div>
+          </div>
+          <div class="statBox">
+            <div class="k">다이아</div>
+            <div class="v">💎 <span id="uiDia" class="mono">0</span></div>
+          </div>
+        </div>
+
+        <div class="hud2">
+          <span class="pill">공격력 <b id="uiAtk" class="mono">0</b></span>
+          <span class="pill">치명 <b id="uiCrit" class="mono">0</b>%</span>
+          <span class="pill">피감 <b id="uiDR" class="mono">0</b>%</span>
+          <span class="pill">회복템 <b id="uiHeals" class="mono">0</b></span>
+        </div>
+
+        <!-- EXP -->
+        <div class="expWrap">
+          <div class="expTop">
+            <div><b>EXP</b> <span id="uiExpPct" class="mono">0</span>%</div>
+            <div class="mono"><span id="uiExp">0</span> / <span id="uiNeedExp">0</span></div>
+          </div>
+          <div class="bar"><div id="uiExpBar" class="fill exp" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- 전투창 (가로 배치) -->
+      <div class="card battleArea" id="battleBg">
+        <div class="battleRow">
+
+          <!-- 팀: 펫1 - 카피 - 펫2 -->
+          <div class="team" id="teamRow">
+
+            <!-- 펫1 (렌더링은 JS에서 안전하게) -->
+            <div class="petSlot" id="petSlot1"></div>
+
+            <!-- 카피바라 -->
+            <div class="col" style="align-items:center; gap:6px;">
+              <div class="spriteBox" style="width:110px;height:110px;">
+                <img id="playerImg" class="sprite" src="capybara.png" alt="capybara">
+                <div class="overlay">
+                  <img id="ovArmor" src="armor_overlay.png" alt="armor overlay" onerror="this.style.display='none'">
+                  <img id="ovCos" src="cosmetic_overlay.png" alt="cos overlay" onerror="this.style.display='none'">
+                  <img id="ovMouth" src="mouth_overlay.png" alt="mouth overlay" onerror="this.style.display='none'">
+                </div>
+              </div>
+              <div class="tiny">카피바라</div>
+              <div class="statusIcons" id="uiPlayerIcons"></div>
+            </div>
+
+            <!-- 펫2 -->
+            <div class="petSlot" id="petSlot2"></div>
+
+          </div>
+
+          <div class="vs">⚔ VS</div>
+
+          <!-- 몬스터 -->
+          <div class="enemy">
+            <div class="spriteBox enemy">
+              <img id="monsterImg" class="sprite" src="monster1.png" alt="monster">
+            </div>
+            <div class="tiny" id="uiMonsterName">하찮은 개구리</div>
+          </div>
+
+        </div>
+
+        <div class="battleInfo">
+          <div class="miniLine">
+            <div class="tiny">몬스터 HP <span id="uiMhp" class="mono">0</span> / <span id="uiMhpMax" class="mono">0</span></div>
+            <div class="tiny" id="uiVariantTag"></div>
+          </div>
+          <div class="bar"><div id="uiMhpBar" class="fill mh" style="width:100%"></div></div>
+          <div class="statusIcons" id="uiMonsterIcons"></div>
+
+          <div class="miniLine">
+            <div class="tiny">🛡 보호막 <span id="uiShieldTxt" class="mono">0</span>/<span id="uiShieldMaxTxt" class="mono">0</span></div>
+            <div class="tiny">❤️ 체력 <span id="uiHpTxt" class="mono">0</span>/<span id="uiHpMaxTxt" class="mono">0</span></div>
+          </div>
+          <div class="bar"><div id="uiShieldBar" class="fill shield" style="width:0%"></div></div>
+          <div class="bar"><div id="uiHpBar" class="fill hp" style="width:100%"></div></div>
+        </div>
+
+        <div id="critText" class="critText">CRITICAL!!</div>
+      </div>
+
+      <div class="card">
+        <button class="btn btnOk" onclick="attack()">👊 공격</button>
+        <button class="btn" onclick="useHeal()">🍖 회복</button>
+        <button class="btn muted" onclick="openReviveIfDead()">💎 부활 (다이아 5) / 사망 시만 가능</button>
+
+        <div class="tiny" style="margin-top:10px; opacity:.9;"><b>전투 로그</b> (미니)</div>
+        <div id="log" class="log"></div>
+      </div>
+
+    </section>
+
+    <!-- ====== 상점(Part2에서 확장) ====== -->
+    <section id="screenShop" style="display:none;">
+      <div class="card">
+        <div style="font-weight:1000; font-size:15px;">상점</div>
+        <div class="tiny">PART2에서: 회복 가챠 / 출석 / 상점탭 / 보상 밸런스 적용</div>
+      </div>
+    </section>
+
+    <!-- ====== 창고(Part3에서 확장) ====== -->
+    <section id="screenWarehouse" style="display:none;">
+      <div class="card">
+        <div style="font-weight:1000; font-size:15px;">창고</div>
+        <div class="tiny">PART3에서: 펫/장비 확장 + 전설강화/신화진화/신화석 강화 + 관리자패널 연동</div>
+      </div>
+    </section>
+
+    <!-- ====== 설정 ====== -->
+    <section id="screenSettings" style="display:none;">
+      <div class="card">
+        <div style="font-weight:1000; font-size:15px;">설정</div>
+        <div class="tiny">BGM/효과음/초기화 + (PART3) 관리자 패널</div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="col"><div style="font-weight:1000;">🎵 BGM</div></div>
+          <button class="btn" style="margin:0; width:auto; padding:10px 14px;" onclick="toggleBgm()" id="btnBgm">ON</button>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="col"><div style="font-weight:1000;">🔊 효과음</div></div>
+          <button class="btn" style="margin:0; width:auto; padding:10px 14px;" onclick="toggleSfx()" id="btnSfx">ON</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:1000;">초기화</div>
+        <div class="tiny muted">모든 데이터 삭제 (되돌리기 불가)</div>
+        <button class="btn btnDanger" onclick="hardReset()">☠ 전체 초기화</button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- 하단 탭 -->
+  <div class="tabbar">
+    <div class="tabs">
+      <button class="tab active" id="tabBattle" onclick="showScreen('battle')">⚔ 전투</button>
+      <button class="tab" id="tabShop" onclick="showScreen('shop')">🛒 상점</button>
+      <button class="tab" id="tabWh" onclick="showScreen('warehouse')">🎒 창고</button>
+      <button class="tab" id="tabSet" onclick="showScreen('settings')">⚙ 설정</button>
+    </div>
+  </div>
+
+  <!-- 모달 -->
+  <div class="modalBack" id="modalBack">
+    <div class="modal">
+      <div class="modalHead">
+        <div class="modalTitle" id="modalTitle">알림</div>
+        <button class="xbtn" onclick="closeModal()">닫기</button>
+      </div>
+      <div id="modalBody" class="tiny" style="white-space:pre-wrap; line-height:1.55;"></div>
+      <div id="modalActions" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   Safari 더블탭 확대 방지
+   ========================= */
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function (event) {
+  const now = (new Date()).getTime();
+  if (now - lastTouchEnd <= 300) event.preventDefault();
+  lastTouchEnd = now;
+}, false);
+
+/* =========================
+   오디오(간단 SFX/BGM)
+   ========================= */
+let audioCtx = null;
+let bgmTimer = null;
+const settings = { bgmEnabled:true, sfxEnabled:true };
+
+function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function beep(freq=440, dur=0.08, type="square", vol=0.18){
+  if(!settings.sfxEnabled) return;
+  initAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.value = vol;
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+function sfxHit(){ beep(250,.06,"square",.22); }
+function sfxCrit(){ beep(1100,.09,"sawtooth",.22); }
+function sfxLvl(){ beep(650,.12,"triangle",.18); setTimeout(()=>beep(950,.12,"triangle",.18),140); }
+function startBgm(){
+  initAudio();
+  if(bgmTimer) return;
+  const notes=[220,277,330,392,440,392,330,277];
+  let i=0;
+  bgmTimer=setInterval(()=>{
+    if(!settings.bgmEnabled) return;
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type="triangle"; osc.frequency.value=notes[i];
+    gain.gain.value=0.055;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+    i=(i+1)%notes.length;
+  },180);
+}
+function toggleBgm(){ settings.bgmEnabled=!settings.bgmEnabled; saveSettings(); renderSettingsButtons(); logMini(settings.bgmEnabled?"🎵 BGM ON":"🔇 BGM OFF"); if(settings.bgmEnabled) startBgm(); }
+function toggleSfx(){ settings.sfxEnabled=!settings.sfxEnabled; saveSettings(); renderSettingsButtons(); logMini(settings.sfxEnabled?"🔊 SFX ON":"🔇 SFX OFF"); }
+function renderSettingsButtons(){
+  document.getElementById("btnBgm").textContent = settings.bgmEnabled ? "ON" : "OFF";
+  document.getElementById("btnSfx").textContent = settings.sfxEnabled ? "ON" : "OFF";
+}
+
+/* =========================
+   저장/로드 (v0.9)
+   - PART2/3에서 구조 확장
+   ========================= */
+const SAVE_VERSION = 9;
+const SAVE_KEY_MAIN = "capy_save_main_v9";
+const SAVE_KEY_BACK = "capy_save_backup_v9";
+const SETTINGS_KEY = "capy_settings_v9";
+
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify({v:SAVE_VERSION, settings})); }
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(obj?.settings){
+      settings.bgmEnabled = !!obj.settings.bgmEnabled;
+      settings.sfxEnabled = !!obj.settings.sfxEnabled;
+    }
+  }catch(e){}
+}
+
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function randi(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function chance(p){ return Math.random()*100 < p; }
+function uid(){ return "id_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16); }
+
+function validateSave(obj){
+  return !!(obj && obj.version===SAVE_VERSION && obj.player && obj.monster);
+}
+function saveGame(){
+  try{
+    const mainRaw = localStorage.getItem(SAVE_KEY_MAIN);
+    if(mainRaw) localStorage.setItem(SAVE_KEY_BACK, mainRaw);
+    state.t = Date.now();
+    state.settings = clone(settings);
+    localStorage.setItem(SAVE_KEY_MAIN, JSON.stringify(state));
+  }catch(e){
+    logMini("⚠ 저장 실패");
+  }
+}
+function loadGame(){
+  try{
+    const main = localStorage.getItem(SAVE_KEY_MAIN);
+    if(main){
+      const obj = JSON.parse(main);
+      if(validateSave(obj)) return obj;
+    }
+  }catch(e){}
+  try{
+    const back = localStorage.getItem(SAVE_KEY_BACK);
+    if(back){
+      const obj = JSON.parse(back);
+      if(validateSave(obj)){
+        logMini("🛟 백업 복구");
+        return obj;
+      }
+    }
+  }catch(e){}
+  return null;
+}
+let autosaveTimer=null;
+function autoSave(){
+  if(autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer=setTimeout(()=>saveGame(), 220);
+}
+
+/* =========================
+   미니 로그(최근 4줄만 유지)
+   ========================= */
+const LOG_MAX_LINES = 4;
+function logMini(msg){
+  const el = document.getElementById("log");
+  const lines = (el.textContent || "").split("\n").filter(Boolean);
+  lines.push(msg);
+  while(lines.length > LOG_MAX_LINES) lines.shift();
+  el.textContent = lines.join("\n");
+}
+
+/* =========================
+   지역/몬스터(Part2/3에서 확장)
+   ========================= */
+const MAX_LEVEL = 200;
+function zoneName(stage){
+  if(stage<=20) return "초원";
+  if(stage<=40) return "숲";
+  if(stage<=60) return "황야";
+  if(stage<=80) return "설원";
+  if(stage<=100) return "화산";
+  if(stage<=140) return "암흑지대";
+  if(stage<=180) return "천공";
+  return "종말의 땅";
+}
+
+function isBossStage(stage){ return stage % 10 === 0; }
+
+/* 변종 태그(Part2에서 보상 연동) */
+function rollVariant(){
+  // 5% 변종, 1% 황금변종(그 중)
+  if(!chance(5)) return {type:"none", mult:1, tag:""};
+  if(chance(20)) return {type:"gold", mult:2, tag:"⭐ 황금 변종"};
+  return {type:"elite", mult:2, tag:"⭐ 변종"};
+}
+
+/* =========================
+   상태(Part3에서 펫/신화/장비 확장)
+   ========================= */
+let state = null;
+
+function newGameState(){
+  return {
+    version: SAVE_VERSION,
+    t: Date.now(),
+    player: {
+      level:1,
+      exp:0,
+      needExp:20,
+      stage:1,
+      baseAtk:5,
+      baseMaxHp:100,
+      hp:100,
+      shield:0,
+      shieldMax:0,
+      gold:300,
+      dia:10,
+      healItems:0,
+
+      // PART3 확장용(지금은 비워둠)
+      equip: { weaponR:null, weaponL:null, weaponM:null, armor:null, cosmetic:null },
+      statuses: [],
+
+      // 펫: 항상 2슬롯 존재(미장착이면 null) -> 렌더 안전
+      pets: [ null, null ],
+    },
+    monster: {
+      boss:false,
+      name:"하찮은 개구리",
+      img:"monster1.png",
+      maxHp:60,
+      hp:60,
+      atk:6,
+      variant: {type:"none", mult:1, tag:""},
+      statuses: []
+    },
+    settings: clone(settings),
+  };
+}
+
+/* 간단 계산(Part2/3에서 장비/펫 반영 확대) */
+function getTotalAtk(){ return state.player.baseAtk; }
+function getTotalMaxHp(){ return state.player.baseMaxHp; }
+function getDamageReduce(){ return 0; }
+function getCritChance(){ return 5; }
+
+function spawnMonster(stage){
+  const boss = isBossStage(stage);
+  const v = rollVariant();
+  if(boss){
+    return { boss:true, name:"🐉 보스 드래곤", img:"boss.png", maxHp: 80 + stage*10, hp: 80 + stage*10, atk: 8 + Math.floor(stage*1.2), variant:v, statuses:[] };
+  }
+  // 임시 3종(Part2에서 지역별 5~8종으로 확장)
+  const pool = [
+    { name:"하찮은 개구리", img:"monster1.png" },
+    { name:"조금 쎈 토끼", img:"monster2.png" },
+    { name:"맛있는 소", img:"monster3.png" },
+  ];
+  const pick = pool[Math.floor(Math.random()*pool.length)];
+  const baseHp = 55 + stage*7;
+  return { boss:false, name: pick.name, img: pick.img, maxHp: Math.floor(baseHp*v.mult), hp: Math.floor(baseHp*v.mult), atk: Math.floor((6 + stage*0.9)*v.mult*0.9), variant:v, statuses:[] };
+}
+
+function setMonster(stage){
+  state.monster = spawnMonster(stage);
+
+  const bg = document.getElementById("battleBg");
+  bg.classList.toggle("boss", !!state.monster.boss);
+
+  document.getElementById("monsterImg").src = state.monster.img;
+  document.getElementById("uiMonsterName").textContent = state.monster.name;
+
+  document.getElementById("uiVariantTag").textContent = state.monster.variant?.tag || "";
+  autoSave();
+}
+
+/* =========================
+   펫 렌더(안전)
+   - 펫 없으면 DOM 안 만듦
+   - 잠김이면 🔒 표시
+   ========================= */
+function renderPets(){
+  const p = state.player;
+  const s1 = document.getElementById("petSlot1");
+  const s2 = document.getElementById("petSlot2");
+  s1.innerHTML = "";
+  s2.innerHTML = "";
+
+  const unlocked1 = p.level >= 20;
+  const unlocked2 = p.level >= 80;
+
+  // helper
+  const mount = (slotEl, pet, unlocked, lockText)=>{
+    if(!unlocked){
+      slotEl.innerHTML = `<div class="lock">🔒 ${lockText}</div>`;
+      return;
+    }
+    if(!pet){
+      // ✅ 아예 비움(에러/undefined 절대 없음)
+      return;
+    }
+    // pet: {name,img,isMythic}
+    const box = document.createElement("div");
+    box.className = "spriteBox small";
+    const img = document.createElement("img");
+    img.className = "sprite" + (pet.isMythic ? " mythAura" : "");
+    img.src = pet.img || "pet1.png";
+    img.alt = pet.name || "pet";
+    img.onerror = ()=>{ img.style.display="none"; };
+    box.appendChild(img);
+
+    const label = document.createElement("div");
+    label.className = "petLabel";
+    label.textContent = pet.name || "펫";
+
+    slotEl.appendChild(box);
+    slotEl.appendChild(label);
+  };
+
+  mount(s1, p.pets[0], unlocked1, "Lv20 해금");
+  mount(s2, p.pets[1], unlocked2, "Lv80 해금");
+}
+
+/* =========================
+   오버레이 표시(장착 여부만)
+   - 코스 오버레이 “안 뜨게”는 장착 없으면 숨김(기본)
+   ========================= */
+function updateOverlays(){
+  const p = state.player;
+  const ovArmor=document.getElementById("ovArmor");
+  const ovCos=document.getElementById("ovCos");
+  const ovMouth=document.getElementById("ovMouth");
+
+  // PART3에서 실제 장비 장착 연동
+  ovArmor.style.display = p.equip?.armor ? "block" : "none";
+  ovCos.style.display   = p.equip?.cosmetic ? "block" : "none";
+  ovMouth.style.display = (p.level>=80 && p.equip?.weaponM) ? "block" : "none";
+}
+
+/* =========================
+   상태 아이콘(임시)
+   ========================= */
+function renderStatusIcons(){
+  const pIcons = document.getElementById("uiPlayerIcons");
+  const mIcons = document.getElementById("uiMonsterIcons");
+  pIcons.innerHTML=""; mIcons.innerHTML="";
+  // PART3에서 상태이상 시스템 그대로 연결 예정
+}
+
+/* =========================
+   UI 렌더
+   ========================= */
+function render(){
+  const p=state.player, m=state.monster;
+
+  document.getElementById("uiLv").textContent = p.level;
+  document.getElementById("uiStage").textContent = p.stage;
+  document.getElementById("uiZone").textContent = zoneName(p.stage);
+  document.getElementById("uiGold").textContent = p.gold;
+  document.getElementById("uiDia").textContent = p.dia;
+
+  const atk=getTotalAtk(), crit=getCritChance(), dr=getDamageReduce();
+  document.getElementById("uiAtk").textContent = atk;
+  document.getElementById("uiCrit").textContent = crit;
+  document.getElementById("uiDR").textContent = dr;
+  document.getElementById("uiHeals").textContent = p.healItems;
+
+  // EXP 바
+  const pct = (p.needExp>0) ? Math.floor((p.exp/p.needExp)*100) : 0;
+  document.getElementById("uiExpPct").textContent = clamp(pct,0,100);
+  document.getElementById("uiExp").textContent = p.exp;
+  document.getElementById("uiNeedExp").textContent = p.needExp;
+  document.getElementById("uiExpBar").style.width = `${clamp((p.exp/p.needExp)*100,0,100)}%`;
+
+  // HP/Shield
+  const maxHp=getTotalMaxHp();
+  p.hp = clamp(p.hp, 0, maxHp);
+  document.getElementById("uiHpTxt").textContent = p.hp;
+  document.getElementById("uiHpMaxTxt").textContent = maxHp;
+  document.getElementById("uiHpBar").style.width = `${clamp((p.hp/maxHp)*100,0,100)}%`;
+
+  document.getElementById("uiShieldTxt").textContent = Math.floor(p.shield);
+  document.getElementById("uiShieldMaxTxt").textContent = Math.floor(p.shieldMax);
+  const spPct=(p.shieldMax>0)?(p.shield/p.shieldMax)*100:0;
+  document.getElementById("uiShieldBar").style.width = `${clamp(spPct,0,100)}%`;
+
+  // Monster
+  document.getElementById("uiMhp").textContent = m.hp;
+  document.getElementById("uiMhpMax").textContent = m.maxHp;
+  document.getElementById("uiMhpBar").style.width = `${clamp((m.hp/m.maxHp)*100,0,100)}%`;
+
+  renderPets();
+  updateOverlays();
+  renderStatusIcons();
+  renderSettingsButtons();
+}
+
+/* =========================
+   모달
+   ========================= */
+function showModal(title, body, actions=[]){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").textContent=body;
+  const act=document.getElementById("modalActions");
+  act.innerHTML="";
+  for(const a of actions){
+    const b=document.createElement("button");
+    b.className="btn";
+    b.textContent=a.text;
+    if(a.danger) b.classList.add("btnDanger");
+    if(a.ok) b.classList.add("btnOk");
+    if(a.disabled){
+      b.style.opacity=.5;
+      b.onclick=()=>{};
+    }else{
+      b.onclick=()=>a.fn?.();
+    }
+    act.appendChild(b);
+  }
+  document.getElementById("modalBack").style.display="flex";
+}
+function closeModal(){ document.getElementById("modalBack").style.display="none"; }
+
+/* =========================
+   화면 전환
+   ========================= */
+function showScreen(name){
+  const screens={
+    battle:document.getElementById("screenBattle"),
+    shop:document.getElementById("screenShop"),
+    warehouse:document.getElementById("screenWarehouse"),
+    settings:document.getElementById("screenSettings"),
+  };
+  for(const k in screens) screens[k].style.display=(k===name)?"block":"none";
+  document.getElementById("tabBattle").classList.toggle("active", name==="battle");
+  document.getElementById("tabShop").classList.toggle("active", name==="shop");
+  document.getElementById("tabWh").classList.toggle("active", name==="warehouse");
+  document.getElementById("tabSet").classList.toggle("active", name==="settings");
+}
+
+/* =========================
+   전투(임시 베이스)
+   - PART2/3에서 보상/상태/장비/펫/신화 전부 연결
+   ========================= */
+function showCrit(){
+  const el=document.getElementById("critText");
+  el.classList.remove("showCrit"); void el.offsetWidth;
+  el.classList.add("showCrit");
+}
+
+function dealToPlayer(raw){
+  const p=state.player;
+  const dr=getDamageReduce()/100;
+  let dmg=Math.floor(raw*(1-dr));
+  if(dmg<1) dmg=1;
+
+  // 최대피해 95%
+  dmg=Math.min(dmg, Math.max(1, Math.floor(p.hp*0.95)));
+
+  let shieldLost=0, hpLost=0;
+
+  if(p.shield>0){
+    const sUse=Math.min(p.shield, dmg);
+    p.shield-=sUse;
+    dmg-=sUse;
+    shieldLost=sUse;
+  }
+  if(dmg>0){
+    p.hp-=dmg;
+    hpLost=dmg;
+  }
+  return {shieldLost, hpLost};
+}
+
+function attack(){
+  const p=state.player, m=state.monster;
+  if(p.hp<=0){ logMini("☠ 사망 상태"); render(); return; }
+
+  // 애니
+  const pImg=document.getElementById("playerImg");
+  const mImg=document.getElementById("monsterImg");
+  pImg.classList.add("dash"); mImg.classList.add("shake");
+  setTimeout(()=>pImg.classList.remove("dash"),240);
+  setTimeout(()=>mImg.classList.remove("shake"),240);
+
+  // 딜
+  sfxHit();
+  let dmg=getTotalAtk();
+  const isCrit=chance(getCritChance());
+  if(isCrit){ dmg=Math.floor(dmg*2.0); showCrit(); sfxCrit(); logMini(`💥 치명 -${dmg}`); }
+  else logMini(`👊 공격 -${dmg}`);
+
+  m.hp=clamp(m.hp-dmg,0,m.maxHp);
+
+  if(m.hp<=0){
+    onWin();
+    render(); autoSave();
+    return;
+  }
+
+  // 몬스터 공격
+  const r = dealToPlayer(m.atk);
+  logMini(`🟥 피해 -${r.hpLost} 🟦-${r.shieldLost}`);
+
+  if(p.hp<=0) onDeath();
+  render(); autoSave();
+}
+
+function onWin(){
+  const p=state.player;
+
+  // PART2에서 골드/보스보상/신화석/변종 보상 전면 재조정
+  const gainExp = 12 + p.stage*3;
+  const gainGold = 22 + p.stage*6;
+
+  p.exp += gainExp;
+  p.gold += gainGold;
+
+  // 회복템 드랍(기본 유지)
+  const heals = randi(3,7);
+  p.healItems += heals;
+
+  logMini(`🏆 승리 +EXP${gainExp} +G${gainGold} +🧴${heals}`);
+
+  // 레벨업(임시 곡선; PART2에서 “엔드게임형(2번)”으로 완만 커브 적용)
+  while(p.exp>=p.needExp && p.level<MAX_LEVEL){
+    p.exp -= p.needExp;
+    p.level += 1;
+    p.needExp = Math.floor(p.needExp*1.18 + 10); // PART2에서 구간별 커브로 교체
+    p.baseMaxHp += 16;
+    p.baseAtk += 2;
+    p.hp = clamp(p.hp + Math.floor(getTotalMaxHp()*0.15), 0, getTotalMaxHp());
+    sfxLvl();
+    logMini(`📈 Lv${p.level}`);
+  }
+
+  p.stage += 1;
+  setMonster(p.stage);
+}
+
+function useHeal(){
+  const p=state.player;
+  if(p.hp<=0){ logMini("☠ 회복 불가"); return; }
+  if(p.healItems<=0){ logMini("❌ 회복템 없음"); return; }
+  p.healItems -= 1;
+  const heal = Math.max(1, Math.floor(getTotalMaxHp()*0.35));
+  p.hp = clamp(p.hp + heal, 0, getTotalMaxHp());
+  logMini(`🍖 회복 +${heal}`);
+  autoSave(); render();
+}
+
+/* 죽음/부활(기본) */
+function onDeath(){
+  logMini("☠ 사망");
+  showDeathModal();
+  autoSave();
+}
+function openReviveIfDead(){
+  if(state.player.hp>0){ logMini("부활은 사망 시만"); return; }
+  showDeathModal();
+}
+function showDeathModal(){
+  const p=state.player;
+  showModal("사망", "부활: 💎5 / 풀피 / 몬스터 HP 유지\n(리셋런/파괴/난이도는 PART3에서 완성)",[
+    {text:"💎 부활(5)", disabled:p.dia<5, ok:true, fn:()=>revive()},
+    {text:"닫기", fn:()=>closeModal()}
+  ]);
+}
+function revive(){
+  const p=state.player;
+  if(p.dia<5){ logMini("❌ 다이아 부족"); return; }
+  p.dia -= 5;
+  p.hp = getTotalMaxHp();
+  logMini("💎 부활 풀피");
+  closeModal();
+  autoSave(); render();
+}
+
+/* 초기화 */
+function hardReset(){
+  showModal("전체 초기화","진짜 초기화 하시겠습니까 형님!!",[
+    {text:"☠ 삭제", danger:true, fn:()=>{
+      localStorage.removeItem(SAVE_KEY_MAIN);
+      localStorage.removeItem(SAVE_KEY_BACK);
+      state=newGameState();
+      document.getElementById("log").textContent="";
+      logMini("☠ 초기화 완료");
+      setMonster(1);
+      closeModal();
+      autoSave();
+      render();
+      showScreen("battle");
+    }},
+    {text:"취소", fn:()=>closeModal()}
+  ]);
+}
+
+/* =========================
+   PART2/3 코드가 여기에 이어붙음
+   ========================= */
+
+<!--
+강해져바라 v0.9 (분할 2/3) - 경제/출석/상점/회복가챠/EXP커브/보스보상/변종보상 + (전투화면에서 골드/다이아 숨기기 옵션)
+사용법:
+1) PART1 파일에서
+   "/* ==== PART2_START ... */" 와 "/* ==== PART2_END ==== */" 사이를
+   이 코드로 통째로 교체해서 붙여넣기
+2) 저장/로드 키는 v9 그대로 유지
+-->
+
+/* ==== PART2_START (경제/출석/상점/회복가챠/EXP 커브/보스보상/변종보상) ==== */
+
+/* -------------------------
+   전투 화면에서 골드/다이아 숨기기
+   - 형님 요청: 골드/다이아는 상점에서만 보이게
+   - 구현: 전투화면 HUD의 골드/다이아 카드 숨김, 상점/창고/설정에서는 표시 가능
+   - 단, 상점 화면이 아직 단순이라(Part3에서 상점 UI 완성) 일단 토글형으로 넣음
+   ------------------------- */
+const uiPrefs = {
+  hideCurrencyInBattle: true, // ✅ 요청 기본값
+};
+
+function applyCurrencyVisibility(){
+  const battleOn = (document.getElementById("screenBattle").style.display !== "none");
+  // HUD 3,4번째 statBox가 골드/다이아임(Part1 구조)
+  const hud = document.querySelector("#screenBattle .hud");
+  if(!hud) return;
+  const boxes = hud.querySelectorAll(".statBox");
+  if(boxes.length >= 4){
+    const goldBox = boxes[2];
+    const diaBox  = boxes[3];
+    const hide = uiPrefs.hideCurrencyInBattle && battleOn;
+    goldBox.style.display = hide ? "none" : "";
+    diaBox.style.display  = hide ? "none" : "";
+  }
+}
+
+/* 기존 showScreen을 감싸서 적용 */
+const _showScreen = showScreen;
+showScreen = function(name){
+  _showScreen(name);
+  applyCurrencyVisibility();
+  if(name==="shop"){
+    renderShop();
+  }
+};
+
+/* -------------------------
+   EXP 커브(2번안: 20레벨부터 너무 안오르는 문제 해결)
+   - 목표: 20~60 구간 완화, 100+부터는 다시 서서히 증가
+   - 방식: 레벨 구간별 multiplier + additive
+   ------------------------- */
+function nextNeedExp(currentNeed, nextLevel){
+  // nextLevel: 올라간 뒤의 레벨
+  if(nextLevel < 20){
+    return Math.floor(currentNeed*1.16 + 10);
+  }else if(nextLevel < 60){
+    // ✅ 체감 개선 구간
+    return Math.floor(currentNeed*1.11 + 14);
+  }else if(nextLevel < 120){
+    return Math.floor(currentNeed*1.14 + 18);
+  }else{
+    return Math.floor(currentNeed*1.17 + 22);
+  }
+}
+
+/* Part1의 onWin 레벨업 루프를 훅으로 교체 */
+const _onWin_part1 = onWin;
+onWin = function(){
+  const p=state.player;
+  const m=state.monster;
+
+  // 보상 계산: 일반 골드 ↓ / 보스 ↑ / 변종 ×2 유지
+  const isBoss = !!m.boss;
+  const mult = (m.variant?.mult || 1);
+
+  // ✅ 골드 드랍 줄이기(일반)
+  let gainGold = Math.floor((14 + p.stage*3.8) * mult);
+
+  // ✅ EXP는 약간 상향해서 레벨 체감
+  let gainExp  = Math.floor((12 + p.stage*2.8) * mult);
+
+  // ✅ 보스 보상 상향(골드/EXP)
+  if(isBoss){
+    gainGold = Math.floor(gainGold * 2.6);   // 보스 골드 대폭
+    gainExp  = Math.floor(gainExp  * 2.0);   // 보스 EXP
+  }
+
+  // 회복템 드랍(기본 유지)
+  const heals = randi(3,7);
+
+  p.exp += gainExp;
+  p.gold += gainGold;
+  p.healItems += heals;
+
+  // 다이아 드랍: 일반 8%, 보스 20%, 변종이면 +5%p
+  let diaP = isBoss ? 20 : 8;
+  if(mult>=2) diaP += 5;
+  if(chance(diaP)){
+    const plus = isBoss ? 2 : 1;
+    p.dia += plus;
+    logMini(`💎 +${plus}`);
+  }
+
+  logMini(`🏆 승리 +EXP${gainExp} +G${gainGold} +🧴${heals}`);
+
+  // 레벨업
+  while(p.exp>=p.needExp && p.level<MAX_LEVEL){
+    p.exp -= p.needExp;
+    p.level += 1;
+
+    // ✅ 커브 적용
+    p.needExp = nextNeedExp(p.needExp, p.level);
+
+    // 성장
+    p.baseMaxHp += 16;
+    p.baseAtk += 2;
+    p.hp = clamp(p.hp + Math.floor(getTotalMaxHp()*0.15), 0, getTotalMaxHp());
+    sfxLvl();
+    logMini(`📈 Lv${p.level}`);
+  }
+
+  // 다음 스테이지
+  p.stage += 1;
+  setMonster(p.stage);
+
+  render();
+  autoSave();
+};
+
+/* -------------------------
+   출석(7일)
+   - 하루 1회 (로컬 기준)
+   - 보상: 다이아/부활권/가챠권(기어/치장/회복)
+   - 7일차: 전설 확정권(Part3에서 실제 구현)
+   ------------------------- */
+const DAILY_KEY = "capy_daily_v9";
+
+function todayKey(){
+  // KST 기준으로 날짜 키
+  const d = new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const da=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${da}`;
+}
+
+function getDaily(){
+  try{
+    const raw = localStorage.getItem(DAILY_KEY);
+    if(!raw) return {last:"", streak:0, tickets:{gear:0, cos:0, heal:0}, revive:0};
+    const obj = JSON.parse(raw);
+    return Object.assign({last:"", streak:0, tickets:{gear:0, cos:0, heal:0}, revive:0}, obj);
+  }catch(e){
+    return {last:"", streak:0, tickets:{gear:0, cos:0, heal:0}, revive:0};
+  }
+}
+
+function setDaily(d){
+  localStorage.setItem(DAILY_KEY, JSON.stringify(d));
+}
+
+function dailyRewards(day){
+  // day: 1~7
+  // 추천 구성
+  if(day===1) return {dia:5,  ticketHeal:1, msg:"💎5 + 회복가챠권1"};
+  if(day===2) return {dia:8,  ticketGear:1, msg:"💎8 + 장비가챠권1"};
+  if(day===3) return {dia:10, revive:1,    msg:"💎10 + 부활권1"};
+  if(day===4) return {dia:12, ticketCos:1, msg:"💎12 + 치장가챠권1"};
+  if(day===5) return {dia:15, ticketHeal:2,msg:"💎15 + 회복가챠권2"};
+  if(day===6) return {dia:20, ticketGear:1, ticketCos:1, msg:"💎20 + 장비권1 + 치장권1"};
+  // 7일차: 전설 확정권은 Part3에서 실장(여기선 티켓으로 기록만)
+  return {dia:25, ticketGear:1, msg:"💎25 + 전설확정권(장비) (Part3)" , legendGear:1};
+}
+
+function claimDaily(){
+  const d = getDaily();
+  const t = todayKey();
+  if(d.last === t){
+    showModal("출석체크","오늘은 이미 받았습니다!",[{text:"확인", fn:()=>closeModal()}]);
+    return;
+  }
+  // 연속 체크: 하루 건너뛰면 초기화
+  // 단순하게 "어제" 여부만 확인(로컬)
+  const prev = new Date();
+  prev.setDate(prev.getDate()-1);
+  const py=prev.getFullYear(), pm=String(prev.getMonth()+1).padStart(2,"0"), pda=String(prev.getDate()).padStart(2,"0");
+  const yKey = `${py}-${pm}-${pda}`;
+
+  if(d.last !== yKey) d.streak = 0;
+  d.streak += 1;
+  if(d.streak > 7) d.streak = 1;
+
+  const r = dailyRewards(d.streak);
+
+  // 지급
+  state.player.dia += (r.dia||0);
+  if(r.revive) d.revive += r.revive;
+  if(r.ticketGear) d.tickets.gear += r.ticketGear;
+  if(r.ticketCos) d.tickets.cos += r.ticketCos;
+  if(r.ticketHeal) d.tickets.heal += r.ticketHeal;
+
+  // 7일차 전설확정권은 Part3에서 별도 키로 분리 예정
+  if(r.legendGear){
+    d.tickets.gear += 1; // 임시로 gear 티켓+1 (Part3에서 'legend' 티켓 분리)
+  }
+
+  d.last = t;
+  setDaily(d);
+
+  logMini(`📅 출석 ${d.streak}일차: ${r.msg}`);
+  showModal("출석체크",`✅ ${d.streak}일차 보상\n${r.msg}`,[
+    {text:"확인", fn:()=>{closeModal(); render(); autoSave();}}
+  ]);
+}
+
+/* -------------------------
+   상점 UI (Part2 완성)
+   - 장비/치장/회복 가챠 + 티켓 사용 + 출석 버튼
+   - 10연 가격 = 10배(요청)
+   - 회복 가챠 가격: 1000골드(추천)
+   ------------------------- */
+function ensureShopMarkup(){
+  const shop = document.getElementById("screenShop");
+  if(!shop) return;
+  if(shop.dataset.ready === "1") return;
+
+  shop.innerHTML = `
+    <div class="card">
+      <div style="font-weight:1000; font-size:15px;">상점</div>
+      <div class="tiny">골드/다이아는 상점에서만 확인 가능</div>
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="pill">💰 골드 <b id="shopGold" class="mono">0</b></span>
+        <span class="pill">💎 다이아 <b id="shopDia" class="mono">0</b></span>
+        <span class="pill">🎟 장비권 <b id="tGear" class="mono">0</b></span>
+        <span class="pill">🎟 치장권 <b id="tCos" class="mono">0</b></span>
+        <span class="pill">🎟 회복권 <b id="tHeal" class="mono">0</b></span>
+        <span class="pill">🪽 부활권 <b id="tRevive" class="mono">0</b></span>
+      </div>
+      <button class="btn btnOk" onclick="claimDaily()">📅 출석체크 받기</button>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:1000;">🧴 회복템 가챠 (골드)</div>
+      <div class="tiny">랜덤으로 회복템 3~7개 획득</div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btnGold" style="flex:1;" onclick="pullHealGacha(1)">💰 1회 (1000)</button>
+        <button class="btn btnGold" style="flex:1;" onclick="pullHealGacha(10)">💰 10회 (10000)</button>
+      </div>
+      <button class="btn" onclick="useTicket('heal')">🎟 회복가챠권 사용 (1)</button>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:1000;">🎰 장비 가챠 (골드)</div>
+      <div class="tiny">무기/방어구 등장 (Part3에서 풀 확장)</div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btnGold" style="flex:1;" onclick="pullGearGacha(1)">💰 1회 (200)</button>
+        <button class="btn btnGold" style="flex:1;" onclick="pullGearGacha(10)">💰 10회 (2000)</button>
+      </div>
+      <button class="btn" onclick="useTicket('gear')">🎟 장비가챠권 사용 (1)</button>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:1000;">✨ 치장 가챠 (다이아)</div>
+      <div class="tiny">치장은 다이아로 뽑음 (Part3에서 풀 확장)</div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btnDia" style="flex:1;" onclick="pullCosGacha(1)">💎 1회 (5)</button>
+        <button class="btn btnDia" style="flex:1;" onclick="pullCosGacha(10)">💎 10회 (50)</button>
+      </div>
+      <button class="btn" onclick="useTicket('cos')">🎟 치장가챠권 사용 (1)</button>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:1000;">부활권</div>
+      <div class="tiny">사망 시 부활 버튼에서 먼저 사용(Part3에서 우선 적용)</div>
+    </div>
+  `;
+  shop.dataset.ready = "1";
+}
+
+function renderShop(){
+  ensureShopMarkup();
+  const d = getDaily();
+  document.getElementById("shopGold").textContent = state.player.gold;
+  document.getElementById("shopDia").textContent  = state.player.dia;
+  document.getElementById("tGear").textContent    = d.tickets.gear;
+  document.getElementById("tCos").textContent     = d.tickets.cos;
+  document.getElementById("tHeal").textContent    = d.tickets.heal;
+  document.getElementById("tRevive").textContent  = d.revive;
+}
+
+/* -------------------------
+   회복템 가챠
+   ------------------------- */
+function pullHealGacha(count){
+  const p = state.player;
+  const cost = 1000 * count;
+  if(p.gold < cost){
+    logMini("❌ 골드 부족");
+    return;
+  }
+  p.gold -= cost;
+
+  let total = 0;
+  for(let i=0;i<count;i++){
+    total += randi(3,7);
+  }
+  p.healItems += total;
+
+  logMini(`🧴 회복가챠 +${total} (x${count})`);
+  showModal("회복가챠",`✅ 회복템 ${total}개 획득!`,[{text:"확인", fn:()=>closeModal()}]);
+  render();
+  autoSave();
+}
+
+function useTicket(kind){
+  const d = getDaily();
+  if(kind==="heal"){
+    if(d.tickets.heal<=0){ logMini("❌ 회복권 없음"); return; }
+    d.tickets.heal -= 1;
+    setDaily(d);
+    const got = randi(3,7);
+    state.player.healItems += got;
+    logMini(`🎟 회복권 사용 +${got}`);
+    showModal("회복권",`✅ 회복템 ${got}개 획득!`,[{text:"확인", fn:()=>closeModal()}]);
+  }
+  if(kind==="gear"){
+    if(d.tickets.gear<=0){ logMini("❌ 장비권 없음"); return; }
+    d.tickets.gear -= 1;
+    setDaily(d);
+    // Part3에서 인벤에 아이템으로 추가. 여기선 보상만 로그로.
+    logMini("🎟 장비권 사용 (Part3에서 인벤 지급)");
+    showModal("장비권",`✅ 장비 1개 획득! (Part3에서 창고에 들어감)`,[{text:"확인", fn:()=>closeModal()}]);
+  }
+  if(kind==="cos"){
+    if(d.tickets.cos<=0){ logMini("❌ 치장권 없음"); return; }
+    d.tickets.cos -= 1;
+    setDaily(d);
+    logMini("🎟 치장권 사용 (Part3에서 인벤 지급)");
+    showModal("치장권",`✅ 치장 1개 획득! (Part3에서 창고에 들어감)`,[{text:"확인", fn:()=>closeModal()}]);
+  }
+  renderShop();
+  render();
+  autoSave();
+}
+
+/* -------------------------
+   장비/치장 가챠 (Part3에서 실제 인벤 지급)
+   - Part2에선 상점 동작만 보이게
+   - Part3에서 기존 창고/장착/합성/강화/신화로 연결됨
+   ------------------------- */
+function pullGearGacha(count){
+  const p = state.player;
+  const cost = 200 * count;
+  if(p.gold < cost){ logMini("❌ 골드 부족"); return; }
+  p.gold -= cost;
+
+  // Part3에서 인벤 지급
+  logMini(`🎰 장비가챠 x${count} (Part3에서 인벤 지급)`);
+  showModal("장비가챠",`✅ 장비 ${count}개 획득! (Part3에서 창고 확인)`,[{text:"확인", fn:()=>closeModal()}]);
+  renderShop();
+  render();
+  autoSave();
+}
+
+function pullCosGacha(count){
+  const p = state.player;
+  const cost = 5 * count;
+  if(p.dia < cost){ logMini("❌ 다이아 부족"); return; }
+  p.dia -= cost;
+
+  logMini(`✨ 치장가챠 x${count} (Part3에서 인벤 지급)`);
+  showModal("치장가챠",`✅ 치장 ${count}개 획득! (Part3에서 창고 확인)`,[{text:"확인", fn:()=>closeModal()}]);
+  renderShop();
+  render();
+  autoSave();
+}
+
+/* -------------------------
+   부활: 출석 부활권 우선 사용 (Part3에서 완성)
+   - Part2에서는 동작만 연결
+   ------------------------- */
+const _revive_part1 = revive;
+revive = function(){
+  const d = getDaily();
+  if(d.revive > 0){
+    d.revive -= 1;
+    setDaily(d);
+    state.player.hp = getTotalMaxHp();
+    logMini("🪽 부활권 사용! 풀피");
+    closeModal();
+    renderShop();
+    render();
+    autoSave();
+    return;
+  }
+  // 없으면 다이아 부활
+  _revive_part1();
+};
+
+/* -------------------------
+   화면 진입 시 통화 표시 갱신
+   ------------------------- */
+const _render_part1 = render;
+render = function(){
+  _render_part1();
+  applyCurrencyVisibility();
+  // 상점 떠있으면 상점 값 갱신
+  const shopVisible = (document.getElementById("screenShop").style.display !== "none");
+  if(shopVisible) renderShop();
+};
+
+/* 초기 로드시 전투 통화 숨김 반영 */
+applyCurrencyVisibility();
+
+/* ==== PART2_END ==== */
+<!--
+강해져바라 v0.9 (분할 2/3) - 경제/출석/상점/회복가챠/EXP커브/보스보상/변종보상 + (전투화면에서 골드/다이아 숨기기 옵션)
+사용법:
+1) PART1 파일에서
+   "/* ==== PART2_START ... */" 와 "/* ==== PART2_END ==== */" 사이를
+   이 코드로 통째로 교체해서 붙여넣기
+2) 저장/로드 키는 v9 그대로 유지
+-->
+
+
+
+
+/* =========================
+   시작
+   ========================= */
+document.addEventListener("DOMContentLoaded", ()=>{
+  loadSettings();
+  renderSettingsButtons();
+
+  const loaded=loadGame();
+  if(loaded){
+    state=loaded;
+    if(state.settings){
+      settings.bgmEnabled=!!state.settings.bgmEnabled;
+      settings.sfxEnabled=!!state.settings.sfxEnabled;
+    }
+    logMini("📂 로딩 완료");
+  }else{
+    state=newGameState();
+    logMini("🔥 시작");
+  }
+
+  // 몬스터 세팅
+  setMonster(state.player.stage);
+
+  if(settings.bgmEnabled) startBgm();
+
+  render();
+  autoSave();
+});
+</script>
+</body>
+</html>
